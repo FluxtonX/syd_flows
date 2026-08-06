@@ -1,0 +1,67 @@
+/* ─────────────────────────────────────────────────────────────
+   SYD FLOWS Web Admin – Types
+   ───────────────────────────────────────────────────────────── */
+
+/** Firestore document shape for the `videos` collection */
+export interface VideoDocument {
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  duration: string;
+  trainer: string;
+  premium: boolean;
+  isPaid: boolean;
+  isFree: boolean;
+  videoSource: 'youtube' | 'custom';
+  youtubeUrl?: string;
+  youtubeId?: string;
+  propsUsed: string;
+  cyclePhase: string;
+  thumbnailUrl: string;
+  thumbnailPublicId: string;
+  videoUrl: string;
+  videoPublicId: string;
+  createdAt: Date;
+}
+
+/** Saved Firestore document (with auto-generated ID) */
+export interface VideoRecord extends VideoDocument {
+  id: string;
+}
+
+/** Authenticated admin user */
+export interface AuthUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+}
+
+/** Per-file upload progress (0–100) */
+export interface UploadProgress {
+  thumbnail: number;
+  video: number;
+}
+
+/** Result from a single Cloudinary upload */
+export interface CloudinaryUploadResult {
+  secureUrl: string;
+  publicId: string;
+}
+
+/** Upload form field values */
+export interface UploadFormValues {
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  duration: string;
+  trainer: string;
+  premium: boolean;
+  videoSource: 'youtube' | 'custom';
+  youtubeUrl?: string;
+  propsUsed: string;
+  cyclePhase: string;
+  thumbnail?: FileList;
+  video?: FileList;
+}

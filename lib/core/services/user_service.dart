@@ -79,8 +79,10 @@ class UserService {
       if (docSnap.exists) {
         final data = docSnap.data();
         if (data != null) {
-          final hasCompleted = data['hasCompletedSetup'] == true ||
-              (data['setupFlow'] is Map && (data['setupFlow']['isCompleted'] == true));
+          final hasCompleted =
+              data['hasCompletedSetup'] == true ||
+              (data['setupFlow'] is Map &&
+                  (data['setupFlow']['isCompleted'] == true));
           return hasCompleted;
         }
       }
@@ -126,7 +128,9 @@ class UserService {
   }
 
   // Get user profile data stream
-  Stream<DocumentSnapshot<Map<String, dynamic>>> getUserProfileStream(String uid) {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> getUserProfileStream(
+    String uid,
+  ) {
     return _db.collection('users').doc(uid).snapshots();
   }
 
@@ -142,7 +146,11 @@ class UserService {
   }) async {
     try {
       final docRef = customId != null
-          ? _db.collection('users').doc(uid).collection('notifications').doc(customId)
+          ? _db
+                .collection('users')
+                .doc(uid)
+                .collection('notifications')
+                .doc(customId)
           : _db.collection('users').doc(uid).collection('notifications').doc();
 
       await docRef.set({
@@ -168,7 +176,10 @@ class UserService {
   }
 
   // Send Welcome Notification if not already sent for this user
-  Future<void> sendWelcomeNotificationIfNeeded(String uid, {String? name}) async {
+  Future<void> sendWelcomeNotificationIfNeeded(
+    String uid, {
+    String? name,
+  }) async {
     try {
       final docRef = _db
           .collection('users')
@@ -177,19 +188,24 @@ class UserService {
           .doc('welcome_notification');
 
       final snap = await docRef.get();
-      if (!snap.exists) {
-        final userName = name?.isNotEmpty == true
-            ? name!
-            : (AuthService.instance.currentUser?.displayName ?? 'there');
+      final userName = name?.isNotEmpty == true
+          ? name!
+          : (AuthService.instance.currentUser?.displayName ?? 'there');
 
+      if (!snap.exists) {
         await sendNotification(
           uid: uid,
-          title: 'Welcome to SYD FLOW! 🌸',
+          title: 'Welcome to SYD FLOWS! 🌸',
           message:
               'Welcome $userName! Your personal wellness & cycle tracking journey starts now. Explore your daily flow insights!',
           category: 'welcome',
           customId: 'welcome_notification',
         );
+      } else {
+        final existingTitle = snap.data()?['title'] as String?;
+        if (existingTitle == 'Welcome to SYD FLOW! 🌸') {
+          await docRef.update({'title': 'Welcome to SYD FLOWS! 🌸'});
+        }
       }
     } catch (e) {
       Helpers.log('Error checking/sending welcome notification: $e');
@@ -204,8 +220,11 @@ class UserService {
         .collection('notifications')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => NotificationModel.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   // Realtime stream of unread notification count

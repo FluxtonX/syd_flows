@@ -11,22 +11,32 @@ import '../viewmodels/cycle_view_model.dart';
 enum CyclePhase { menstrual, follicular, ovulation, luteal }
 
 class DayJournal {
+  final String? flow;
   final List<String> moods;
   final List<String> symptoms;
   final double energy;
   final String notes;
 
   DayJournal({
+    this.flow,
     required this.moods,
     required this.symptoms,
     required this.energy,
     required this.notes,
   });
 
-  bool get isEmpty => moods.isEmpty && symptoms.isEmpty && notes.isEmpty;
+  bool get isEmpty =>
+      (flow == null || flow!.isEmpty) &&
+      moods.isEmpty &&
+      symptoms.isEmpty &&
+      notes.isEmpty;
 
   String get summaryText {
     final parts = <String>[];
+    if (flow != null && flow!.isNotEmpty) {
+      final cap = flow![0].toUpperCase() + flow!.substring(1);
+      parts.add('Flow: $cap');
+    }
     if (moods.isNotEmpty) {
       parts.add('Mood: ${moods.join(", ")}');
     }
@@ -63,17 +73,74 @@ class _CycleScreenState extends State<CycleScreen> {
     super.dispose();
   }
 
-  // Phase helper mapping matching Figma design
-  CyclePhase _getDayPhase(int day) {
-    if ((day >= 1 && day <= 5) || (day >= 29 && day <= 31)) {
+  // Calculate dynamic period start day from logged flow entries
+  int _getPeriodStartDay(Map<int, DayJournal> entries) {
+    final flowDays =
+        entries.entries
+            .where((e) => e.value.flow != null && e.value.flow!.isNotEmpty)
+            .map((e) => e.key)
+            .toList()
+          ..sort();
+    if (flowDays.isNotEmpty) {
+      return flowDays.first;
+    }
+    return 1; // Default to 1st of month if no flow logged yet
+  }
+
+  // Phase helper mapping matching Figma design & logged period start day
+  CyclePhase _getDayPhase(int day, int periodStartDay) {
+    // If user explicitly logged flow on this day, it is Menstrual phase
+    final loggedFlow = _viewModel.journalEntries[day]?.flow;
+    if (loggedFlow != null && loggedFlow.isNotEmpty) {
       return CyclePhase.menstrual;
-    } else if (day >= 6 && day <= 13) {
+    }
+
+    int offset = day - periodStartDay;
+    if (offset < 0) offset += 31;
+    final cycleDay = (offset % 28) + 1;
+
+    if (cycleDay >= 1 && cycleDay <= 5) {
+      return CyclePhase.menstrual;
+    } else if (cycleDay >= 6 && cycleDay <= 13) {
       return CyclePhase.follicular;
-    } else if (day >= 14 && day <= 16) {
+    } else if (cycleDay >= 14 && cycleDay <= 16) {
       return CyclePhase.ovulation;
     } else {
       return CyclePhase.luteal;
     }
+  }
+
+  Widget _buildFlowIndicator(String flow, bool isSelected) {
+    final iconColor = isSelected ? AppColors.wellnessPinkText : AppColors.white;
+    int count;
+    switch (flow.toLowerCase()) {
+      case 'spotting':
+        count = 1;
+        break;
+      case 'light':
+        count = 1;
+        break;
+      case 'medium':
+        count = 2;
+        break;
+      case 'heavy':
+        count = 3;
+        break;
+      default:
+        count = 1;
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
+        count,
+        (index) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 0.5),
+          child: Icon(Icons.water_drop_rounded, size: 7.5, color: iconColor),
+        ),
+      ),
+    );
   }
 
   Color _getPhaseColor(CyclePhase phase) {
@@ -140,15 +207,26 @@ class _CycleScreenState extends State<CycleScreen> {
         final journalEntries = _viewModel.journalEntries;
         final showSuccessBanner = _viewModel.showSuccessBanner;
 
-        // Generate July 2026 calendar days: 1 to 31
-        // July 1, 2026 is a Wednesday.
-        // 0 represents empty space at start (Sunday, Monday, Tuesday are empty = 3 slots)
+        final periodStartDay = _getPeriodStartDay(journalEntries);
+
+        final int daysInMonth = DateTime(
+          _viewModel.currentYear,
+          _viewModel.currentMonth + 1,
+          0,
+        ).day;
+        final int firstWeekday = DateTime(
+          _viewModel.currentYear,
+          _viewModel.currentMonth,
+          1,
+        ).weekday;
+        final int emptySlots = firstWeekday % 7; // Sunday = 0, Monday = 1, ...
+
         final List<int> calendarDays = [
-          0, 0, 0, // Empty spaces
-          ...List.generate(31, (index) => index + 1),
+          ...List.filled(emptySlots, 0),
+          ...List.generate(daysInMonth, (index) => index + 1),
         ];
 
-        final currentPhase = _getDayPhase(selectedDay);
+        final currentPhase = _getDayPhase(selectedDay, periodStartDay);
         final hasEntry = journalEntries.containsKey(selectedDay);
         final currentJournal = journalEntries[selectedDay];
 
@@ -174,7 +252,11 @@ class _CycleScreenState extends State<CycleScreen> {
                         AppSpacing.h16,
                         _buildAppBar(),
                         AppSpacing.h24,
-                        _buildCalendarCard(calendarDays, selectedDay),
+                        _buildCalendarCard(
+                          calendarDays,
+                          selectedDay,
+                          periodStartDay,
+                        ),
                         AppSpacing.h24,
                         _buildSelectedDayDetailCard(
                           selectedDay,
@@ -183,7 +265,7 @@ class _CycleScreenState extends State<CycleScreen> {
                           currentJournal,
                         ),
                         AppSpacing.h24,
-                        _buildPredictionsCard(),
+                        _buildPredictionsCard(periodStartDay),
                       ],
                     ),
                   ),
@@ -279,7 +361,13 @@ class _CycleScreenState extends State<CycleScreen> {
   }
 
   // --- Calendar Card ---
-  Widget _buildCalendarCard(List<int> calendarDays, int selectedDay) {
+  Widget _buildCalendarCard(
+    List<int> calendarDays,
+    int selectedDay,
+    int periodStartDay,
+  ) {
+    final journalEntries = _viewModel.journalEntries;
+
     return Container(
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
@@ -296,12 +384,14 @@ class _CycleScreenState extends State<CycleScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Month navigation selector: < July 2026 >
+          // Month navigation selector: < Month Year >
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                onPressed: () {},
+                onPressed: () {
+                  _viewModel.previousMonth();
+                },
                 icon: const Icon(
                   Icons.chevron_left_rounded,
                   color: AppColors.wellnessGray,
@@ -309,14 +399,16 @@ class _CycleScreenState extends State<CycleScreen> {
                 ),
               ),
               Text(
-                'July 2026',
+                '${_viewModel.monthName} ${_viewModel.currentYear}',
                 style: AppTextStyles.titleMedium.copyWith(
                   color: AppColors.wellnessBrown,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               IconButton(
-                onPressed: () {},
+                onPressed: () {
+                  _viewModel.nextMonth();
+                },
                 icon: const Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.wellnessGray,
@@ -355,8 +447,10 @@ class _CycleScreenState extends State<CycleScreen> {
               final day = calendarDays[index];
               if (day == 0) return const SizedBox.shrink();
 
-              final phase = _getDayPhase(day);
+              final phase = _getDayPhase(day, periodStartDay);
               final isSelected = day == selectedDay;
+              final journal = journalEntries[day];
+              final flow = journal?.flow;
 
               return GestureDetector(
                 onTap: () {
@@ -364,6 +458,10 @@ class _CycleScreenState extends State<CycleScreen> {
                 },
                 child: Container(
                   alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 1.0,
+                    vertical: 2.0,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.white : _getPhaseColor(phase),
                     borderRadius: BorderRadius.circular(8.0),
@@ -372,34 +470,40 @@ class _CycleScreenState extends State<CycleScreen> {
                         ? Border.all(color: AppColors.wellnessBrown, width: 2.0)
                         : null,
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '$day',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: isSelected
-                              ? AppColors.wellnessBrown
-                              : _getPhaseTextColor(phase),
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.w600,
-                        ),
-                      ),
-                      if (phase == CyclePhase.menstrual) ...[
-                        const SizedBox(height: 2.0),
-                        Container(
-                          width: 4.0,
-                          height: 4.0,
-                          decoration: BoxDecoration(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$day',
+                          style: AppTextStyles.bodyMedium.copyWith(
                             color: isSelected
-                                ? AppColors.wellnessPinkText
-                                : AppColors.white,
-                            shape: BoxShape.circle,
+                                ? AppColors.wellnessBrown
+                                : _getPhaseTextColor(phase),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.w600,
+                            height: 1.1,
                           ),
                         ),
+                        const SizedBox(height: 2.0),
+                        if (flow != null && flow.isNotEmpty)
+                          _buildFlowIndicator(flow, isSelected)
+                        else if (phase == CyclePhase.menstrual)
+                          Container(
+                            width: 4.0,
+                            height: 4.0,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.wellnessPinkText
+                                  : AppColors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
               );
@@ -531,7 +635,57 @@ class _CycleScreenState extends State<CycleScreen> {
   }
 
   // --- Predictions Card ---
-  Widget _buildPredictionsCard() {
+  Widget _buildPredictionsCard(int periodStartDay) {
+    final monthShort = _viewModel.shortMonthName;
+    final nextMonthShort = _viewModel.nextShortMonthName;
+
+    final daysInMonth = DateTime(
+      _viewModel.currentYear,
+      _viewModel.currentMonth + 1,
+      0,
+    ).day;
+    final rawNextDay = periodStartDay + 28;
+    final isNextMonth = rawNextDay > daysInMonth;
+    final nextPeriodDay = isNextMonth ? (rawNextDay - daysInMonth) : rawNextDay;
+    final targetMonthName = isNextMonth ? nextMonthShort : monthShort;
+
+    final todayDay = DateTime.now().day;
+    final daysUntilNextPeriod = isNextMonth
+        ? (daysInMonth - todayDay + nextPeriodDay)
+        : (nextPeriodDay - todayDay);
+
+    final nextPeriodText = daysUntilNextPeriod > 0
+        ? 'in $daysUntilNextPeriod days • $targetMonthName $nextPeriodDay'
+        : '$targetMonthName $nextPeriodDay';
+
+    final rawFertileStart = periodStartDay + 11;
+    final fertileStartDay = rawFertileStart > daysInMonth
+        ? (rawFertileStart - daysInMonth)
+        : rawFertileStart;
+    final fertileStartMonth = rawFertileStart > daysInMonth
+        ? nextMonthShort
+        : monthShort;
+
+    final rawFertileEnd = periodStartDay + 16;
+    final fertileEndDay = rawFertileEnd > daysInMonth
+        ? (rawFertileEnd - daysInMonth)
+        : rawFertileEnd;
+    final fertileEndMonth = rawFertileEnd > daysInMonth
+        ? nextMonthShort
+        : monthShort;
+
+    final fertileText =
+        '$fertileStartMonth $fertileStartDay – $fertileEndMonth $fertileEndDay';
+
+    final rawOvulationDay = periodStartDay + 13;
+    final ovulationDay = rawOvulationDay > daysInMonth
+        ? (rawOvulationDay - daysInMonth)
+        : rawOvulationDay;
+    final ovulationMonth = rawOvulationDay > daysInMonth
+        ? nextMonthShort
+        : monthShort;
+    final ovulationText = '$ovulationMonth $ovulationDay';
+
     return Container(
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
@@ -564,16 +718,20 @@ class _CycleScreenState extends State<CycleScreen> {
           _buildPredictionRow(
             AppColors.phaseFollicular,
             'Next period',
-            'in 20 days • Jul 20',
+            nextPeriodText,
           ),
           const SizedBox(height: 12.0),
           _buildPredictionRow(
             AppColors.wellnessBeige,
             'Fertile window',
-            'Jul 12 – Jul 17',
+            fertileText,
           ),
           const SizedBox(height: 12.0),
-          _buildPredictionRow(AppColors.wellnessBeige, 'Ovulation', 'Jul 14'),
+          _buildPredictionRow(
+            AppColors.wellnessBeige,
+            'Ovulation',
+            ovulationText,
+          ),
         ],
       ),
     );
@@ -641,6 +799,7 @@ class _LogTodayBottomSheet extends StatefulWidget {
 }
 
 class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
+  String? _selectedFlow;
   final Set<String> _selectedMoods = {};
   final Set<String> _selectedSymptoms = {};
   double _energy = 0.6;
@@ -649,6 +808,7 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
   @override
   void initState() {
     super.initState();
+    _selectedFlow = widget.initialJournal.flow;
     _selectedMoods.addAll(widget.initialJournal.moods);
     _selectedSymptoms.addAll(widget.initialJournal.symptoms);
     _energy = widget.initialJournal.energy;
@@ -679,6 +839,42 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
         _selectedSymptoms.add(symptom);
       }
     });
+  }
+
+  Widget _buildFlowChip(String key, String label) {
+    final isSelected = _selectedFlow == key;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedFlow = isSelected ? null : key;
+          });
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+          padding: const EdgeInsets.symmetric(vertical: 10.0),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.wellnessBrown : AppColors.white,
+            borderRadius: AppRadius.r12,
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.wellnessBrown
+                  : AppColors.wellnessBeige.withValues(alpha: 0.25),
+              width: 1.0,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.labelMedium.copyWith(
+              color: isSelected ? AppColors.white : AppColors.wellnessBrown,
+              fontWeight: FontWeight.w600,
+              fontSize: 11.5,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -776,6 +972,26 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
                     ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 24.0),
+
+            // LOG YOUR FLOW SECTION
+            Text(
+              'Log your flow',
+              style: AppTextStyles.titleMedium.copyWith(
+                color: AppColors.wellnessBrown,
+                fontWeight: FontWeight.bold,
+                fontSize: 16.0,
+              ),
+            ),
+            const SizedBox(height: 10.0),
+            Row(
+              children: [
+                _buildFlowChip('spotting', '💧 Spotting'),
+                _buildFlowChip('light', '🩸 Light'),
+                _buildFlowChip('medium', '🩸 Medium'),
+                _buildFlowChip('heavy', '🩸 Heavy'),
               ],
             ),
             const SizedBox(height: 24.0),
@@ -1033,6 +1249,7 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
             GestureDetector(
               onTap: () {
                 final journal = DayJournal(
+                  flow: _selectedFlow,
                   moods: _selectedMoods.toList(),
                   symptoms: _selectedSymptoms.toList(),
                   energy: _energy,
@@ -1085,7 +1302,7 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
         height: 18,
         colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
         placeholderBuilder: (_) => Icon(fallbackIcon, size: 18, color: color),
-        errorBuilder: (_, __, ___) =>
+        errorBuilder: (context, error, stackTrace) =>
             Icon(fallbackIcon, size: 18, color: color),
       );
     } else {
@@ -1094,7 +1311,7 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
         width: 18,
         height: 18,
         color: isSelected ? AppColors.white : null,
-        errorBuilder: (_, __, ___) =>
+        errorBuilder: (context, error, stackTrace) =>
             Icon(fallbackIcon, size: 18, color: color),
       );
     }

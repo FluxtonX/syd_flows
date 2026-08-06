@@ -6,6 +6,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_success_banner.dart';
 import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/services/auth_service.dart';
 import '../screens/workout_screen.dart';
 
 class ConfettiParticle {
@@ -221,14 +222,26 @@ class _WorkoutCompleteScreenState extends State<WorkoutCompleteScreen> {
                     AppSpacing.h32,
 
                     // Celebration Text
-                    Text(
-                      'Beautiful work, Ava',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.headlineMedium.copyWith(
-                        color: AppColors.wellnessBrown,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 28.0,
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final user = AuthService.instance.currentUser;
+                        final rawName = user?.displayName ?? '';
+                        final firstName = rawName.trim().isNotEmpty
+                            ? (rawName.contains(' ') ? rawName.split(' ').first : rawName)
+                            : '';
+                        final message = firstName.isNotEmpty
+                            ? 'Beautiful work, $firstName'
+                            : 'Beautiful work!';
+                        return Text(
+                          message,
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.headlineMedium.copyWith(
+                            color: AppColors.wellnessBrown,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 28.0,
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 12.0),
 

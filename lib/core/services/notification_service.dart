@@ -55,8 +55,8 @@ class NotificationService {
   }) async {
     const androidDetails = AndroidNotificationDetails(
       'syd_flow_channel',
-      'SYD FLOW Notifications',
-      channelDescription: 'Wellness, cycle, and workout notifications for SYD FLOW',
+      'SYD FLOWS Notifications',
+      channelDescription: 'Wellness, cycle, and workout notifications for SYD FLOWS',
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,

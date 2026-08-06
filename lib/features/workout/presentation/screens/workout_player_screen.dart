@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:video_player/video_player.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -22,13 +23,26 @@ class WorkoutPlayerScreen extends StatefulWidget {
 
 class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
   YoutubePlayerController? _youtubeController;
+  VideoPlayerController? _videoPlayerController;
+  bool _isVideoInitialized = false;
   Timer? _timer;
   bool _isPlaying = true;
   int _elapsedSeconds = 0;
-  int get _totalSeconds =>
-      _youtubeController?.value.metaData.duration.inSeconds != 0
-          ? (_youtubeController?.value.metaData.duration.inSeconds ?? widget.workout.duration * 60)
-          : (widget.workout.duration * 60);
+
+  int get _totalSeconds {
+    if (_youtubeController != null &&
+        _youtubeController!.value.metaData.duration.inSeconds != 0) {
+      return _youtubeController!.value.metaData.duration.inSeconds;
+    }
+    if (_videoPlayerController != null &&
+        _isVideoInitialized &&
+        _videoPlayerController!.value.duration.inSeconds != 0) {
+      return _videoPlayerController!.value.duration.inSeconds;
+    }
+    return widget.workout.duration * 60;
+  }
+
+  bool _hasVideoError = false;
 
   @override
   void initState() {
@@ -49,6 +63,26 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
           hideThumbnail: true,
         ),
       )..addListener(_onYoutubeStateChange);
+    } else if (widget.workout.videoUrl != null &&
+        widget.workout.videoUrl!.isNotEmpty) {
+      final Uri videoUri = Uri.parse(widget.workout.videoUrl!);
+      _videoPlayerController = VideoPlayerController.networkUrl(videoUri)
+        ..initialize().then((_) {
+          if (!mounted) return;
+          setState(() {
+            _isVideoInitialized = true;
+            _hasVideoError = false;
+          });
+          _videoPlayerController!.play();
+          _videoPlayerController!.setLooping(false);
+        }).catchError((error) {
+          if (!mounted) return;
+          setState(() {
+            _hasVideoError = true;
+          });
+          _startTimer();
+        });
+      _videoPlayerController!.addListener(_onVideoPlayerStateChange);
     } else {
       _startTimer();
     }
@@ -66,10 +100,27 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
     }
   }
 
+  void _onVideoPlayerStateChange() {
+    if (_videoPlayerController == null || !mounted || !_isVideoInitialized) {
+      return;
+    }
+    final value = _videoPlayerController!.value;
+    setState(() {
+      _isPlaying = value.isPlaying;
+      _elapsedSeconds = value.position.inSeconds;
+    });
+
+    if (value.position >= value.duration && value.duration.inSeconds > 0) {
+      _showFinishedScreen();
+    }
+  }
+
   @override
   void dispose() {
     _youtubeController?.removeListener(_onYoutubeStateChange);
     _youtubeController?.dispose();
+    _videoPlayerController?.removeListener(_onVideoPlayerStateChange);
+    _videoPlayerController?.dispose();
     _timer?.cancel();
     super.dispose();
   }
@@ -97,6 +148,12 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
       } else {
         _youtubeController!.play();
       }
+    } else if (_videoPlayerController != null && _isVideoInitialized) {
+      if (_videoPlayerController!.value.isPlaying) {
+        _videoPlayerController!.pause();
+      } else {
+        _videoPlayerController!.play();
+      }
     } else {
       setState(() {
         _isPlaying = !_isPlaying;
@@ -108,6 +165,9 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
     if (_youtubeController != null) {
       final current = _youtubeController!.value.position;
       _youtubeController!.seekTo(current + const Duration(seconds: 15));
+    } else if (_videoPlayerController != null && _isVideoInitialized) {
+      final current = _videoPlayerController!.value.position;
+      _videoPlayerController!.seekTo(current + const Duration(seconds: 15));
     } else {
       setState(() {
         _elapsedSeconds = (_elapsedSeconds + 30).clamp(0, _totalSeconds);
@@ -119,6 +179,9 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
     if (_youtubeController != null) {
       final current = _youtubeController!.value.position;
       _youtubeController!.seekTo(current - const Duration(seconds: 15));
+    } else if (_videoPlayerController != null && _isVideoInitialized) {
+      final current = _videoPlayerController!.value.position;
+      _videoPlayerController!.seekTo(current - const Duration(seconds: 15));
     } else {
       setState(() {
         _elapsedSeconds = (_elapsedSeconds - 30).clamp(0, _totalSeconds);
@@ -145,11 +208,10 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final remainingSeconds = _totalSeconds - _elapsedSeconds;
-    final progress = _elapsedSeconds / _totalSeconds;
+    final progress = _totalSeconds > 0 ? _elapsedSeconds / _totalSeconds : 0.0;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -162,62 +224,110 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFF3B2413),
         body: Stack(
-        children: [
-          // 1. YouTube Video / Cover Image in upper portion
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: MediaQuery.of(context).size.height * 0.58,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: _youtubeController != null
-                      ? IgnorePointer(
-                          child: Center(
-                            child: FittedBox(
-                              fit: BoxFit.contain,
-                              child: SizedBox(
-                                width: MediaQuery.of(context).size.width,
-                                height: MediaQuery.of(context).size.width * 9 / 16,
-                                child: YoutubePlayer(
-                                  controller: _youtubeController!,
-                                  showVideoProgressIndicator: false,
-                                  topActions: const [],
-                                  bottomActions: const [],
+          children: [
+            // 1. YouTube Video / Custom MP4 Video Player / Fallback Cover
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: MediaQuery.of(context).size.height * 0.58,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: (_youtubeController != null && widget.workout.hasVideo)
+                        ? IgnorePointer(
+                            child: Center(
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: SizedBox(
+                                  width: MediaQuery.of(context).size.width,
+                                  height:
+                                      MediaQuery.of(context).size.width * 9 / 16,
+                                  child: YoutubePlayer(
+                                    controller: _youtubeController!,
+                                    showVideoProgressIndicator: false,
+                                    topActions: const [],
+                                    bottomActions: const [],
+                                  ),
                                 ),
                               ),
                             ),
+                          )
+                        : (_videoPlayerController != null && _isVideoInitialized)
+                            ? Center(
+                                child: AspectRatio(
+                                  aspectRatio:
+                                      _videoPlayerController!.value.aspectRatio > 0
+                                          ? _videoPlayerController!.value.aspectRatio
+                                          : 16 / 9,
+                                  child: VideoPlayer(_videoPlayerController!),
+                                ),
+                              )
+                            : (_videoPlayerController != null &&
+                                    !_isVideoInitialized &&
+                                    !_hasVideoError)
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.white,
+                                    ),
+                                  )
+                                : Container(
+                                    color: const Color(0xFF23140A),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.videocam_off_rounded,
+                                          color: AppColors.white
+                                              .withValues(alpha: 0.6),
+                                          size: 52.0,
+                                        ),
+                                        AppSpacing.h12,
+                                        Text(
+                                          'No Video Link Available',
+                                          style:
+                                              AppTextStyles.titleMedium.copyWith(
+                                            color: AppColors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4.0),
+                                        Text(
+                                          'This workout does not have an attached video URL.',
+                                          textAlign: TextAlign.center,
+                                          style:
+                                              AppTextStyles.bodySmall.copyWith(
+                                            color: AppColors.white
+                                                .withValues(alpha: 0.6),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                  ),
+                  // Dark Gradient overlay blending downwards into player background
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.15),
+                              Colors.transparent,
+                              const Color(0xFF3B2413).withValues(alpha: 0.8),
+                              const Color(0xFF3B2413),
+                            ],
+                            stops: const [0.0, 0.4, 0.85, 1.0],
                           ),
-                        )
-                      : Image.asset(
-                          widget.workout.imagePath,
-                          fit: BoxFit.contain,
-                        ),
-                ),
-                // Dark Gradient overlay blending downwards into player background
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.15),
-                            Colors.transparent,
-                            const Color(0xFF3B2413).withValues(alpha: 0.8),
-                            const Color(0xFF3B2413),
-                          ],
-                          stops: const [0.0, 0.4, 0.85, 1.0],
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
 
           // 2. Top Chevron Back Button

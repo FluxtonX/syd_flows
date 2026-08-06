@@ -1,0 +1,153 @@
+/* ─────────────────────────────────────────────────────────────
+   SYD FLOWS Web Admin – CSS Design Tokens
+   Strictly matched with SYD FLOW Flutter App Colors (AppColors.dart)
+   Wellness Warm Theme & Deep Chocolate Dark Mode
+   ───────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme='dark'] {
+  /* Core Brand Colors (AppColors.dart) */
+  --color-primary: #ee8aa4;
+  --color-primary-hover: #f09bba;
+  --color-primary-glow: rgba(238, 138, 164, 0.35);
+
+  --color-secondary: #eaa584;
+  --color-secondary-glow: rgba(234, 165, 132, 0.3);
+
+  --color-accent: #f5b075;
+
+  /* Layout & Backgrounds (AppColors.darkBackground & darkSurface) */
+  --color-bg: #120c09;
+  --color-surface: #1a120e;
+  --color-card: #241914;
+  --color-card-hover: #2d201a;
+  --color-input-bg: #170f0b;
+  --color-sidebar-bg: rgba(26, 18, 14, 0.92);
+  --color-header-bg: rgba(18, 12, 9, 0.88);
+
+  /* Nav Items */
+  --color-nav-hover: rgba(251, 247, 242, 0.06);
+  --color-nav-active-bg: linear-gradient(135deg, rgba(238, 138, 164, 0.2), rgba(234, 165, 132, 0.12));
+  --color-nav-active-text: #fbf7f2;
+  --color-nav-active-border: #ee8aa4;
+
+  /* Borders (AppColors.darkBorder) */
+  --color-border: #36271f;
+  --color-border-subtle: rgba(251, 247, 242, 0.08);
+  --color-border-focus: #ee8aa4;
+
+  /* Text (AppColors.darkTextPrimary, Secondary, Tertiary) */
+  --color-text-primary: #fbf7f2;
+  --color-text-secondary: #d6c7bc;
+  --color-text-tertiary: #9e8e81;
+  --color-text-placeholder: #7a685a;
+
+  /* Feedback */
+  --color-success: #10b981;
+  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-error: #ef4444;
+  --color-error-bg: rgba(239, 68, 68, 0.12);
+  --color-warning: #f59e0b;
+
+  /* Gradients (AppColors.backgroundGradient & primaryGradient) */
+  --gradient-primary: linear-gradient(135deg, #ee8aa4 0%, #eaa584 100%);
+  --gradient-bg: linear-gradient(160deg, #120c09 0%, #1a120e 50%, #26161d 100%);
+  --gradient-card: linear-gradient(135deg, #241914, #1a120e);
+
+  /* Shadows */
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px var(--color-primary-glow);
+  --shadow-glow-sm: 0 0 10px var(--color-primary-glow);
+  --shadow-input: 0 0 0 3px var(--color-primary-glow);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Typography */
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 400ms ease;
+}
+
+[data-theme='light'] {
+  /* Core Brand Colors (AppColors.wellnessBrown / wellnessPink / wellnessPeach) */
+  --color-primary: #3d261a;
+  --color-primary-hover: #2c1a10;
+  --color-primary-glow: rgba(75, 46, 22, 0.2);
+
+  --color-secondary: #e380a5;
+  --color-secondary-glow: rgba(227, 128, 165, 0.25);
+
+  --color-accent: #eaa584;
+
+  /* Layout & Backgrounds (Wellness Peach → Cream → Pink Gradient & Pure White Cards) */
+  --color-bg: #fbf7f2;
+  --color-surface: #ffffff;
+  --color-card: #ffffff;
+  --color-card-hover: #faf0e6;
+  --color-input-bg: #ffffff;
+  --color-sidebar-bg: rgba(255, 255, 255, 0.92);
+  --color-header-bg: rgba(250, 244, 237, 0.88);
+
+  /* Nav Items */
+  --color-nav-hover: #faf0e6;
+  --color-nav-active-bg: linear-gradient(135deg, rgba(61, 38, 26, 0.08), rgba(227, 128, 165, 0.14));
+  --color-nav-active-text: #3d261a;
+  --color-nav-active-border: #e380a5;
+
+  /* Borders (AppColors.wellnessPinkBorder / lightBorder) */
+  --color-border: #eadccf;
+  --color-border-subtle: #f5ebe1;
+  --color-border-focus: #e380a5;
+
+  /* Text (AppColors.wellnessBrown & wellnessGray) */
+  --color-text-primary: #3d261a;
+  --color-text-secondary: #7f7166;
+  --color-text-tertiary: #9e8e81;
+  --color-text-placeholder: #b0a296;
+
+  /* Feedback */
+  --color-success: #10b981;
+  --color-success-bg: rgba(16, 185, 129, 0.08);
+  --color-error: #ef4444;
+  --color-error-bg: rgba(239, 68, 68, 0.08);
+  --color-warning: #f59e0b;
+
+  /* Gradients (Matching Mobile Figma peach → cream → blush gradient) */
+  --gradient-primary: linear-gradient(135deg, #3d261a 0%, #7a5638 100%);
+  --gradient-bg: linear-gradient(165deg, #faf3ec 0%, #fbf7f2 45%, #fcddec 100%);
+  --gradient-card: #ffffff;
+
+  /* Shadows */
+  --shadow-card: 0 4px 20px rgba(61, 38, 26, 0.05);
+  --shadow-glow: 0 0 15px rgba(227, 128, 165, 0.2);
+  --shadow-glow-sm: 0 0 8px rgba(227, 128, 165, 0.15);
+  --shadow-input: 0 0 0 3px rgba(227, 128, 165, 0.2);
+}

@@ -1,1 +1,47 @@
-{"firestore":{"rules":"firestore.rules"},"flutter":{"platforms":{"android":{"default":{"projectId":"syd-flows","appId":"1:943743637180:android:76542b81a4079fb12562b9","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"syd-flows","appId":"1:943743637180:ios:05709b1ac7763bf32562b9","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"syd-flows","configurations":{"android":"1:943743637180:android:76542b81a4079fb12562b9","ios":"1:943743637180:ios:05709b1ac7763bf32562b9"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "public": "web_admin/dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "syd-flows",
+          "appId": "1:943743637180:android:76542b81a4079fb12562b9",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "syd-flows",
+          "appId": "1:943743637180:ios:05709b1ac7763bf32562b9",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "syd-flows",
+          "configurations": {
+            "android": "1:943743637180:android:76542b81a4079fb12562b9",
+            "ios": "1:943743637180:ios:05709b1ac7763bf32562b9"
+          }
+        }
+      }
+    }
+  }
+}

@@ -6,12 +6,42 @@ import '../../../../core/utils/helpers.dart';
 import '../screens/cycle_screen.dart';
 
 class CycleViewModel extends ChangeNotifier {
-  int _selectedDay = 1;
-  final int _currentYear = 2026;
-  final int _currentMonth = 7; // July 2026
+  int _selectedDay = DateTime.now().day;
+  int _currentYear = DateTime.now().year;
+  int _currentMonth = DateTime.now().month;
   final bool _isLoading = false;
   bool _showSuccessBanner = false;
   Timer? _bannerTimer;
+
+  static const List<String> _monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  static const List<String> _shortMonthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
 
   final Map<int, DayJournal> _journalEntries = {};
   StreamSubscription<Map<String, DayJournal>>? _logSubscription;
@@ -24,9 +54,46 @@ class CycleViewModel extends ChangeNotifier {
   int get selectedDay => _selectedDay;
   int get currentYear => _currentYear;
   int get currentMonth => _currentMonth;
+  String get monthName => _monthNames[_currentMonth - 1];
+  String get shortMonthName => _shortMonthNames[_currentMonth - 1];
+  String get nextShortMonthName => _shortMonthNames[_currentMonth % 12];
   bool get isLoading => _isLoading;
   bool get showSuccessBanner => _showSuccessBanner;
   Map<int, DayJournal> get journalEntries => Map.unmodifiable(_journalEntries);
+
+  void previousMonth() {
+    if (_currentMonth == 1) {
+      _currentMonth = 12;
+      _currentYear--;
+    } else {
+      _currentMonth--;
+    }
+    _selectedDay = 1;
+    _journalEntries.clear();
+    final user = AuthService.instance.currentUser;
+    if (user != null) {
+      _subscribeToUserLogs(user.uid);
+    } else {
+      notifyListeners();
+    }
+  }
+
+  void nextMonth() {
+    if (_currentMonth == 12) {
+      _currentMonth = 1;
+      _currentYear++;
+    } else {
+      _currentMonth++;
+    }
+    _selectedDay = 1;
+    _journalEntries.clear();
+    final user = AuthService.instance.currentUser;
+    if (user != null) {
+      _subscribeToUserLogs(user.uid);
+    } else {
+      notifyListeners();
+    }
+  }
 
   void setSelectedDay(int day) {
     if (_selectedDay != day) {

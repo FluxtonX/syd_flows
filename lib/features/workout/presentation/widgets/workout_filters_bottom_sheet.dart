@@ -30,7 +30,7 @@ class _WorkoutFiltersBottomSheetState extends State<WorkoutFiltersBottomSheet> {
 
   final List<String> _phaseTypes = ['Menstrual', 'Follicular', 'Ovulation', 'Luteal'];
   final List<String> _difficulties = ['Gentle', 'Moderate', 'Strong'];
-  final List<String> _workoutTypes = ['Stretching', 'Yoga', 'Pilates', 'Strength', 'Mobility'];
+  final List<String> _workoutTypes = ['Yoga', 'Pilates', 'Strength', 'Mobility'];
   final List<String> _equipment = [
     'Mat',
     'Light Dumbbells',

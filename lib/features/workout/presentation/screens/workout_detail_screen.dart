@@ -260,10 +260,41 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         children: [
           // Cover Image
           Positioned.fill(
-            child: Image.asset(
-              widget.workout.imagePath,
-              fit: BoxFit.cover,
-            ),
+            child: (widget.workout.imagePath.startsWith('http://') ||
+                    widget.workout.imagePath.startsWith('https://'))
+                ? Image.network(
+                    widget.workout.imagePath,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: const Color(0xFFFAF4ED),
+                      child: const Icon(
+                        Icons.movie_creation_outlined,
+                        color: AppColors.wellnessBrown,
+                        size: 48,
+                      ),
+                    ),
+                  )
+                : (widget.workout.imagePath.isNotEmpty
+                    ? Image.asset(
+                        widget.workout.imagePath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: const Color(0xFFFAF4ED),
+                          child: const Icon(
+                            Icons.movie_creation_outlined,
+                            color: AppColors.wellnessBrown,
+                            size: 48,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        color: const Color(0xFFFAF4ED),
+                        child: const Icon(
+                          Icons.movie_creation_outlined,
+                          color: AppColors.wellnessBrown,
+                          size: 48,
+                        ),
+                      )),
           ),
           // Dark Gradient Overlay for play button readability
           Positioned.fill(
@@ -285,10 +316,15 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           Center(
             child: GestureDetector(
               onTap: () {
+                if (!widget.workout.hasVideo) {
+                  _triggerSuccessBanner('No video available for this workout');
+                  return;
+                }
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => WorkoutPlayerScreen(workout: widget.workout),
+                    builder: (context) =>
+                        WorkoutPlayerScreen(workout: widget.workout),
                   ),
                 );
               },
@@ -306,10 +342,12 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
+                child: Icon(
+                  widget.workout.hasVideo
+                      ? Icons.play_arrow_rounded
+                      : Icons.videocam_off_rounded,
                   color: AppColors.wellnessBrown,
-                  size: 38,
+                  size: 34,
                 ),
               ),
             ),

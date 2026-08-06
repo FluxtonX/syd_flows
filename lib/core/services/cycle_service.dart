@@ -32,6 +32,7 @@ class CycleService {
       final logData = <String, dynamic>{
         'dateKey': dateKey,
         'dayNumber': dayNumber,
+        'flow': journal.flow,
         'moods': journal.moods,
         'symptoms': journal.symptoms,
         'energy': journal.energy,
@@ -60,12 +61,14 @@ class CycleService {
           final Map<String, DayJournal> result = {};
           for (final doc in snapshot.docs) {
             final data = doc.data();
+            final flow = data['flow'] as String?;
             final moods = List<String>.from(data['moods'] ?? []);
             final symptoms = List<String>.from(data['symptoms'] ?? []);
             final energy = (data['energy'] as num?)?.toDouble() ?? 0.6;
             final notes = (data['notes'] as String?) ?? '';
 
             result[doc.id] = DayJournal(
+              flow: flow,
               moods: moods,
               symptoms: symptoms,
               energy: energy,

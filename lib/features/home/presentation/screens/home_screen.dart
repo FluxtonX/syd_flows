@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
@@ -157,55 +158,142 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // --- Header Greeting Helper ---
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return 'Good morning';
+    } else if (hour >= 12 && hour < 17) {
+      return 'Good afternoon';
+    } else {
+      return 'Good evening';
+    }
+  }
+
   // --- Header Widget ---
   Widget _buildHeader() {
+    final currentUser = AuthService.instance.currentUser;
+    if (currentUser == null) {
+      return _buildHeaderContent(name: 'User', photoUrl: null);
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: UserService.instance.getUserProfileStream(currentUser.uid),
+      builder: (context, snapshot) {
+        final docData = snapshot.data?.data();
+
+        final rawName =
+            docData?['displayName'] as String? ?? currentUser.displayName ?? '';
+        final email = docData?['email'] as String? ?? currentUser.email ?? '';
+        final photoUrl =
+            docData?['photoURL'] as String? ?? currentUser.photoURL;
+
+        final fullName = rawName.trim().isNotEmpty
+            ? rawName.trim()
+            : (email.isNotEmpty ? email.split('@').first : 'User');
+
+        final displayName = fullName.contains(' ')
+            ? fullName.split(' ').first
+            : fullName;
+
+        return _buildHeaderContent(name: displayName, photoUrl: photoUrl);
+      },
+    );
+  }
+
+  Widget _buildHeaderContent({
+    required String name,
+    required String? photoUrl,
+  }) {
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          children: [
-            // Custom Artist Line-art Avatar
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.white,
-                border: Border.all(
-                  color: AppColors.wellnessBrown.withValues(alpha: 0.15),
-                  width: 1.0,
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _currentIndex = 4;
+            });
+          },
+          child: Row(
+            children: [
+              // User Real Avatar Logo
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.white,
+                  border: Border.all(
+                    color: AppColors.wellnessBrown.withValues(alpha: 0.15),
+                    width: 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.wellnessBrown.withValues(alpha: 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.wellnessBrown.withValues(alpha: 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                child: ClipOval(
+                  child: photoUrl != null && photoUrl.isNotEmpty
+                      ? Image.network(
+                          photoUrl,
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                color: AppColors.wellnessPink.withValues(
+                                  alpha: 0.3,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  initial,
+                                  style: AppTextStyles.titleMedium.copyWith(
+                                    color: AppColors.wellnessBrown,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                        )
+                      : Container(
+                          color: AppColors.wellnessPink.withValues(alpha: 0.3),
+                          alignment: Alignment.center,
+                          child: Text(
+                            initial,
+                            style: AppTextStyles.titleMedium.copyWith(
+                              color: AppColors.wellnessBrown,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              AppSpacing.w16,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _getGreeting(),
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.wellnessGray,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    name,
+                    style: AppTextStyles.titleLarge.copyWith(
+                      color: AppColors.wellnessBrown,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
-              child: CustomPaint(painter: _AvatarLineArtPainter()),
-            ),
-            AppSpacing.w16,
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Good morning',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.wellnessGray,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  'Ava',
-                  style: AppTextStyles.titleLarge.copyWith(
-                    color: AppColors.wellnessBrown,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
         // Notification bell with live unread badge count
         GestureDetector(
@@ -960,90 +1048,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // --- Placeholder Screens for other tabs ---
-}
-
-// --- Custom Painter for AvaAvatar ---
-class _AvatarLineArtPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.wellnessBrown
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-
-    // Stylized silhouette portrait face profile
-    path.moveTo(size.width * 0.35, size.height * 0.78);
-    path.cubicTo(
-      size.width * 0.35,
-      size.height * 0.65,
-      size.width * 0.40,
-      size.height * 0.48,
-      size.width * 0.45,
-      size.height * 0.45,
-    );
-    // nose bridge
-    path.lineTo(size.width * 0.50, size.height * 0.42);
-    // nose point
-    path.lineTo(size.width * 0.54, size.height * 0.48);
-    path.lineTo(size.width * 0.50, size.height * 0.50);
-    // lips
-    path.quadraticBezierTo(
-      size.width * 0.54,
-      size.height * 0.54,
-      size.width * 0.51,
-      size.height * 0.57,
-    );
-    // chin
-    path.quadraticBezierTo(
-      size.width * 0.55,
-      size.height * 0.63,
-      size.width * 0.50,
-      size.height * 0.68,
-    );
-    // jaw neck
-    path.quadraticBezierTo(
-      size.width * 0.45,
-      size.height * 0.73,
-      size.width * 0.48,
-      size.height * 0.82,
-    );
-
-    // Hair line overlay (artistic loops)
-    final hairPath = Path();
-    hairPath.moveTo(size.width * 0.28, size.height * 0.74);
-    hairPath.cubicTo(
-      size.width * 0.26,
-      size.height * 0.45,
-      size.width * 0.35,
-      size.height * 0.26,
-      size.width * 0.52,
-      size.height * 0.24,
-    );
-    hairPath.cubicTo(
-      size.width * 0.68,
-      size.height * 0.22,
-      size.width * 0.70,
-      size.height * 0.45,
-      size.width * 0.62,
-      size.height * 0.58,
-    );
-    // loose hair strands
-    hairPath.quadraticBezierTo(
-      size.width * 0.55,
-      size.height * 0.40,
-      size.width * 0.45,
-      size.height * 0.35,
-    );
-
-    canvas.drawPath(path, paint);
-    canvas.drawPath(hairPath, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // --- Custom Painter for Cycle Ring Progress ---

@@ -4,6 +4,7 @@ import '../../presentation/screens/cycle_screen.dart';
 class CycleLogModel {
   final String dateKey;
   final int? dayNumber;
+  final String? flow;
   final List<String> moods;
   final List<String> symptoms;
   final double energy;
@@ -13,6 +14,7 @@ class CycleLogModel {
   CycleLogModel({
     required this.dateKey,
     this.dayNumber,
+    this.flow,
     required this.moods,
     required this.symptoms,
     required this.energy,
@@ -24,6 +26,7 @@ class CycleLogModel {
     return CycleLogModel(
       dateKey: dateKey,
       dayNumber: dayNumber,
+      flow: journal.flow,
       moods: journal.moods,
       symptoms: journal.symptoms,
       energy: journal.energy,
@@ -33,6 +36,7 @@ class CycleLogModel {
 
   DayJournal toDayJournal() {
     return DayJournal(
+      flow: flow,
       moods: moods,
       symptoms: symptoms,
       energy: energy,
@@ -44,6 +48,7 @@ class CycleLogModel {
     return {
       'dateKey': dateKey,
       'dayNumber': dayNumber,
+      'flow': flow,
       'moods': moods,
       'symptoms': symptoms,
       'energy': energy,
@@ -57,6 +62,7 @@ class CycleLogModel {
     return CycleLogModel(
       dateKey: doc.id,
       dayNumber: data['dayNumber'] as int?,
+      flow: data['flow'] as String?,
       moods: List<String>.from(data['moods'] ?? []),
       symptoms: List<String>.from(data['symptoms'] ?? []),
       energy: (data['energy'] as num?)?.toDouble() ?? 0.6,
