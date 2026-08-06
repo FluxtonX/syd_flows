@@ -1,0 +1,98 @@
+{
+  "project_info": {
+    "project_number": "943743637180",
+    "project_id": "syd-flows",
+    "storage_bucket": "syd-flows.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:943743637180:android:0548964892e8f7682562b9",
+        "android_client_info": {
+          "package_name": "com.example.syd_flow"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "943743637180-mbdj68t3jau9iappk6cu20v87sltv1bk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.syd_flow",
+            "certificate_hash": "3f15e10255b47fb93eaede0744c7cc1b3cb33f14"
+          }
+        },
+        {
+          "client_id": "943743637180-vve90lul5snt7td3d11o94osl1rhjn87.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.syd_flow",
+            "certificate_hash": "0ed061f9c03d179ebfe3ee70b48344aa702f032b"
+          }
+        },
+        {
+          "client_id": "943743637180-8cj6pa67rk7nisrvrc3hqenmoek95eb2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1LWXrEwmYo6svqCFK21lLGoHMQDVPSZI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "943743637180-8cj6pa67rk7nisrvrc3hqenmoek95eb2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "943743637180-ksntgm0qkdgogkbiiqajl6ocu7e30ps8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.sydFlow"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:943743637180:android:76542b81a4079fb12562b9",
+        "android_client_info": {
+          "package_name": "com.sydflows.sydflows"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "943743637180-8cj6pa67rk7nisrvrc3hqenmoek95eb2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1LWXrEwmYo6svqCFK21lLGoHMQDVPSZI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "943743637180-8cj6pa67rk7nisrvrc3hqenmoek95eb2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "943743637180-ksntgm0qkdgogkbiiqajl6ocu7e30ps8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.sydFlow"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
