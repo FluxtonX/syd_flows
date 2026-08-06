@@ -193,6 +193,23 @@
   transition: background var(--transition-base), border-color var(--transition-base);
 }
 
+.uploadBoxFree {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.uploadBoxPaid {
+  border-color: rgba(238, 138, 164, 0.3);
+}
+
+.badgeFree {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
 .uploadBoxHeader {
   display: flex;
   flex-direction: column;

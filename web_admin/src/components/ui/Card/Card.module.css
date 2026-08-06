@@ -12,10 +12,10 @@
 }
 
 .glass {
-  background: rgba(31, 41, 55, 0.6);
+  background: var(--color-surface);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--color-border);
 }
 
 .glowing {

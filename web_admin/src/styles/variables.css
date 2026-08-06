@@ -5,28 +5,34 @@
    ───────────────────────────────────────────────────────────── */
 
 :root,
-[data-theme='dark'] {
+html[data-theme='dark'],
+body[data-theme='dark'] {
   /* Core Brand Colors (AppColors.dart) */
   --color-primary: #ee8aa4;
   --color-primary-hover: #f09bba;
   --color-primary-glow: rgba(238, 138, 164, 0.35);
+  --color-primary-bg: rgba(238, 138, 164, 0.15);
 
   --color-secondary: #eaa584;
   --color-secondary-glow: rgba(234, 165, 132, 0.3);
 
   --color-accent: #f5b075;
+  --color-accent-pink: #ee8aa4;
 
   /* Layout & Backgrounds (AppColors.darkBackground & darkSurface) */
   --color-bg: #120c09;
   --color-surface: #1a120e;
   --color-card: #241914;
+  --color-card-bg: #241914;
   --color-card-hover: #2d201a;
   --color-input-bg: #170f0b;
-  --color-sidebar-bg: rgba(26, 18, 14, 0.92);
-  --color-header-bg: rgba(18, 12, 9, 0.88);
+  --color-bg-tertiary: #1f140e;
+  --color-sidebar-bg: rgba(26, 18, 14, 0.95);
+  --color-header-bg: rgba(18, 12, 9, 0.90);
 
-  /* Nav Items */
-  --color-nav-hover: rgba(251, 247, 242, 0.06);
+  /* Nav & Hover */
+  --color-hover: rgba(251, 247, 242, 0.08);
+  --color-nav-hover: rgba(251, 247, 242, 0.08);
   --color-nav-active-bg: linear-gradient(135deg, rgba(238, 138, 164, 0.2), rgba(234, 165, 132, 0.12));
   --color-nav-active-text: #fbf7f2;
   --color-nav-active-border: #ee8aa4;
@@ -34,22 +40,24 @@
   /* Borders (AppColors.darkBorder) */
   --color-border: #36271f;
   --color-border-subtle: rgba(251, 247, 242, 0.08);
+  --color-border-dark: #4d382c;
   --color-border-focus: #ee8aa4;
 
   /* Text (AppColors.darkTextPrimary, Secondary, Tertiary) */
   --color-text-primary: #fbf7f2;
   --color-text-secondary: #d6c7bc;
   --color-text-tertiary: #9e8e81;
+  --color-text-muted: #9e8e81;
   --color-text-placeholder: #7a685a;
 
   /* Feedback */
   --color-success: #10b981;
-  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-success-bg: rgba(16, 185, 129, 0.15);
   --color-error: #ef4444;
-  --color-error-bg: rgba(239, 68, 68, 0.12);
+  --color-error-bg: rgba(239, 68, 68, 0.15);
   --color-warning: #f59e0b;
 
-  /* Gradients (AppColors.backgroundGradient & primaryGradient) */
+  /* Gradients */
   --gradient-primary: linear-gradient(135deg, #ee8aa4 0%, #eaa584 100%);
   --gradient-bg: linear-gradient(160deg, #120c09 0%, #1a120e 50%, #26161d 100%);
   --gradient-card: linear-gradient(135deg, #241914, #1a120e);
@@ -96,58 +104,66 @@
   --transition-slow: 400ms ease;
 }
 
-[data-theme='light'] {
-  /* Core Brand Colors (AppColors.wellnessBrown / wellnessPink / wellnessPeach) */
-  --color-primary: #3d261a;
-  --color-primary-hover: #2c1a10;
-  --color-primary-glow: rgba(75, 46, 22, 0.2);
+html[data-theme='light'],
+body[data-theme='light'] {
+  /* Core Brand Colors */
+  --color-primary: #ee8aa4;
+  --color-primary-hover: #e57593;
+  --color-primary-glow: rgba(238, 138, 164, 0.25);
+  --color-primary-bg: rgba(238, 138, 164, 0.12);
 
-  --color-secondary: #e380a5;
-  --color-secondary-glow: rgba(227, 128, 165, 0.25);
+  --color-secondary: #eaa584;
+  --color-secondary-glow: rgba(234, 165, 132, 0.25);
 
-  --color-accent: #eaa584;
+  --color-accent: #f5b075;
+  --color-accent-pink: #ee8aa4;
 
-  /* Layout & Backgrounds (Wellness Peach → Cream → Pink Gradient & Pure White Cards) */
+  /* Layout & Backgrounds for Light Theme */
   --color-bg: #fbf7f2;
   --color-surface: #ffffff;
   --color-card: #ffffff;
+  --color-card-bg: #ffffff;
   --color-card-hover: #faf0e6;
-  --color-input-bg: #ffffff;
-  --color-sidebar-bg: rgba(255, 255, 255, 0.92);
-  --color-header-bg: rgba(250, 244, 237, 0.88);
+  --color-input-bg: #fdfbf7;
+  --color-bg-tertiary: #f5ebe1;
+  --color-sidebar-bg: rgba(255, 255, 255, 0.96);
+  --color-header-bg: rgba(251, 247, 242, 0.92);
 
-  /* Nav Items */
+  /* Nav & Hover */
+  --color-hover: #faf0e6;
   --color-nav-hover: #faf0e6;
-  --color-nav-active-bg: linear-gradient(135deg, rgba(61, 38, 26, 0.08), rgba(227, 128, 165, 0.14));
+  --color-nav-active-bg: linear-gradient(135deg, rgba(238, 138, 164, 0.18), rgba(234, 165, 132, 0.12));
   --color-nav-active-text: #3d261a;
-  --color-nav-active-border: #e380a5;
+  --color-nav-active-border: #ee8aa4;
 
-  /* Borders (AppColors.wellnessPinkBorder / lightBorder) */
+  /* Borders */
   --color-border: #eadccf;
   --color-border-subtle: #f5ebe1;
-  --color-border-focus: #e380a5;
+  --color-border-dark: #d0c2b4;
+  --color-border-focus: #ee8aa4;
 
-  /* Text (AppColors.wellnessBrown & wellnessGray) */
+  /* Text (Dark Brown on Light Cards for High Contrast & Legibility) */
   --color-text-primary: #3d261a;
-  --color-text-secondary: #7f7166;
-  --color-text-tertiary: #9e8e81;
-  --color-text-placeholder: #b0a296;
+  --color-text-secondary: #665547;
+  --color-text-tertiary: #8c7b6d;
+  --color-text-muted: #8c7b6d;
+  --color-text-placeholder: #a8988b;
 
   /* Feedback */
   --color-success: #10b981;
-  --color-success-bg: rgba(16, 185, 129, 0.08);
+  --color-success-bg: rgba(16, 185, 129, 0.1);
   --color-error: #ef4444;
-  --color-error-bg: rgba(239, 68, 68, 0.08);
+  --color-error-bg: rgba(239, 68, 68, 0.1);
   --color-warning: #f59e0b;
 
-  /* Gradients (Matching Mobile Figma peach → cream → blush gradient) */
-  --gradient-primary: linear-gradient(135deg, #3d261a 0%, #7a5638 100%);
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #ee8aa4 0%, #eaa584 100%);
   --gradient-bg: linear-gradient(165deg, #faf3ec 0%, #fbf7f2 45%, #fcddec 100%);
   --gradient-card: #ffffff;
 
   /* Shadows */
-  --shadow-card: 0 4px 20px rgba(61, 38, 26, 0.05);
-  --shadow-glow: 0 0 15px rgba(227, 128, 165, 0.2);
-  --shadow-glow-sm: 0 0 8px rgba(227, 128, 165, 0.15);
-  --shadow-input: 0 0 0 3px rgba(227, 128, 165, 0.2);
+  --shadow-card: 0 4px 20px rgba(61, 38, 26, 0.06);
+  --shadow-glow: 0 0 15px rgba(238, 138, 164, 0.2);
+  --shadow-glow-sm: 0 0 8px rgba(238, 138, 164, 0.15);
+  --shadow-input: 0 0 0 3px rgba(238, 138, 164, 0.2);
 }

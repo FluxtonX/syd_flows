@@ -385,11 +385,11 @@ export function UploadVideoPage() {
 
                 {/* Workout Video Link or File Box */}
                 {watch('videoSource') === 'youtube' ? (
-                  <div className={styles.uploadBox} style={{ background: '#FFF9F5', borderColor: '#F5D5C5' }}>
+                  <div className={`${styles.uploadBox} ${styles.uploadBoxFree}`}>
                     <div className={styles.uploadBoxHeader}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span className={styles.uploadBoxTitle}>🎁 YouTube Video Link (Free Access)</span>
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#2E7D32', background: '#E8F5E9', padding: '2px 8px', borderRadius: '12px' }}>
+                        <span className={styles.badgeFree}>
                           FREE VIDEO
                         </span>
                       </div>
@@ -406,7 +406,7 @@ export function UploadVideoPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className={styles.uploadBox} style={{ background: '#FCF8FF', borderColor: '#E8D4F5' }}>
+                  <div className={`${styles.uploadBox} ${styles.uploadBoxPaid}`}>
                     <div className={styles.uploadBoxHeader}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span className={styles.uploadBoxTitle}>🔒 Custom Video File (Paid / Subscription)</span>

@@ -5,7 +5,7 @@
 .layout {
   display: flex;
   min-height: 100vh;
-  background: var(--color-bg);
+  background: var(--gradient-bg);
   color: var(--color-text-primary);
   transition: background var(--transition-base), color var(--transition-base);
 }

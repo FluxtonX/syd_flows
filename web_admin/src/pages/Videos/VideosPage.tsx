@@ -3,14 +3,13 @@
    Lists all uploaded videos with search, filters, edit & delete
    ───────────────────────────────────────────────────────────── */
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { AppLayout } from '@/components/layout/AppLayout/AppLayout';
 import { ConfirmModal } from '@/components/ui/ConfirmModal/ConfirmModal';
 import { EditVideoModal } from '@/components/ui/EditVideoModal/EditVideoModal';
 import { getVideos, deleteVideo } from '@/services/firebase/firestore';
 import { deleteCloudinaryAsset } from '@/services/cloudinary/upload';
 import {
-  ROUTES,
   VIDEO_CATEGORIES,
   DIFFICULTY_LEVELS,
 } from '@/constants';
@@ -34,6 +33,8 @@ function formatDate(value: unknown): string {
 }
 
 export function VideosPage() {
+  const { user } = useAuth();
+  const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? 'admin';
   const [videos, setVideos] = useState<VideoRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -96,14 +97,6 @@ export function VideosPage() {
     });
   }, [videos, searchQuery, categoryFilter, tierFilter, difficultyFilter]);
 
-  // Statistics summaries
-  const stats = useMemo(() => {
-    const total = videos.length;
-    const freeCount = videos.filter((v) => v.isFree || v.videoSource === 'youtube').length;
-    const paidCount = total - freeCount;
-    return { total, freeCount, paidCount };
-  }, [videos]);
-
   // Handle video edit saved
   const handleSaveEdit = (updatedVideo: VideoRecord) => {
     setVideos((prev) =>
@@ -151,60 +144,12 @@ export function VideosPage() {
         {/* Top Header */}
         <div className={styles.header}>
           <div className={styles.titleGroup}>
-            <h1 className={styles.title}>Workout Videos</h1>
+            <h1 className={styles.title}>
+              Welcome back, {displayName} 👋
+            </h1>
             <p className={styles.subtitle}>
-              Manage, filter, and organize all uploaded video content for SYD FLOWS
+              Manage your workout videos
             </p>
-          </div>
-          <Link to={ROUTES.UPLOAD} className={styles.uploadBtn}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            <span>Upload Video</span>
-          </Link>
-        </div>
-
-        {/* Stats Cards Row */}
-        <div className={styles.statsGrid}>
-          <div className={styles.statCard}>
-            <div className={styles.statIcon}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="23 7 16 12 23 17 23 7" />
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-              </svg>
-            </div>
-            <div className={styles.statMeta}>
-              <span className={styles.statValue}>{stats.total}</span>
-              <span className={styles.statLabel}>Total Videos</span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
-            <div className={styles.statIcon} style={{ color: '#10B981', background: 'rgba(16, 185, 129, 0.1)' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" />
-                <path d="M4 6v12c0 1.1.9 2 2 2h14v-4" />
-                <path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" />
-              </svg>
-            </div>
-            <div className={styles.statMeta}>
-              <span className={styles.statValue}>{stats.freeCount}</span>
-              <span className={styles.statLabel}>Free Workouts</span>
-            </div>
-          </div>
-
-          <div className={styles.statCard}>
-            <div className={styles.statIcon} style={{ color: '#D97706', background: 'rgba(245, 158, 11, 0.1)' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="8" r="7" />
-                <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
-              </svg>
-            </div>
-            <div className={styles.statMeta}>
-              <span className={styles.statValue}>{stats.paidCount}</span>
-              <span className={styles.statLabel}>Premium Workouts</span>
-            </div>
           </div>
         </div>
 
@@ -375,19 +320,7 @@ export function VideosPage() {
 
                         {/* Status */}
                         <td>
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '2px 8px',
-                              borderRadius: '10px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              background: '#ECFDF5',
-                              color: '#059669',
-                            }}
-                          >
+                          <span className={styles.statusLive}>
                             Live
                           </span>
                         </td>
