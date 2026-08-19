@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# iOS build output
+/ios/build/
+build/ios/
+*.ipa
+
+# Apple signing — NEVER commit these
+*.p12
+*.p8
+*.mobileprovision
+*.certSigningRequest

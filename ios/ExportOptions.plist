@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Upload to App Store Connect / TestFlight -->
+    <key>method</key>
+    <string>app-store-connect</string>
+
+    <!-- Your Apple Developer Team ID (find at developer.apple.com → Account → Membership) -->
+    <key>teamID</key>
+    <string>YOUR_TEAM_ID</string>
+
+    <!-- App Store Connect API for upload -->
+    <key>destination</key>
+    <string>upload</string>
+
+    <!-- Strip Swift symbols to reduce IPA size -->
+    <key>stripSwiftSymbols</key>
+    <true/>
+
+    <!-- Provisioning profiles mapping: bundle ID → profile name -->
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.sydflows.sydflows</key>
+        <string>syd_flow Distribution</string>
+    </dict>
+
+    <!-- Signing identity -->
+    <key>signingCertificate</key>
+    <string>Apple Distribution</string>
+
+    <key>signingStyle</key>
+    <string>manual</string>
+</dict>
+</plist>

@@ -1,0 +1,107 @@
+name: iOS Build & TestFlight
+
+# ─────────────────────────────────────────────────────────
+#  Trigger: jab bhi v*.*.* tag push karo (e.g. v1.0.1)
+# ─────────────────────────────────────────────────────────
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-ios:
+    name: Build & Upload to TestFlight
+    runs-on: macos-latest
+
+    steps:
+      # ── 1. Code checkout ──────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Extract version from tag ───────────────────
+      #    Tag "v1.0.5" → BUILD_NAME=1.0.5, BUILD_NUM=5
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          BUILD_NUM="${VERSION##*.}"
+          echo "BUILD_NAME=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "BUILD_NUM=$BUILD_NUM" >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG | Version: $VERSION | Build: $BUILD_NUM"
+
+      # ── 3. Flutter setup ──────────────────────────────
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4'
+          channel: 'stable'
+          cache: true
+
+      # ── 4. Install dependencies ───────────────────────
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      # ── 5. Install CocoaPods ──────────────────────────
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install --repo-update
+
+      # ── 6. Import Apple Distribution Certificate ──────
+      - name: Import distribution certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          echo "$CERTIFICATE_BASE64" | base64 --decode -o "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+      # ── 7. Install Provisioning Profile ───────────────
+      - name: Install provisioning profile
+        env:
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILES_DIR"
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PROFILES_DIR/syd_flow.mobileprovision"
+
+      # ── 8. Build iOS IPA ──────────────────────────────
+      - name: Build Flutter iOS (release)
+        run: |
+          flutter build ipa \
+            --release \
+            --build-name="${{ steps.version.outputs.BUILD_NAME }}" \
+            --build-number="${{ steps.version.outputs.BUILD_NUM }}" \
+            --export-options-plist=ios/ExportOptions.plist
+
+      # ── 9. Upload IPA as GitHub artifact ─────────────
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: syd-flow-${{ steps.version.outputs.BUILD_NAME }}.ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 30
+
+      # ── 10. Upload to TestFlight ──────────────────────
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: build/ios/ipa/*.ipa
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+
+      # ── 11. Cleanup keychain ──────────────────────────
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true
