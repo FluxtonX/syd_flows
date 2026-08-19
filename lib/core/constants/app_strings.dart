@@ -2,7 +2,7 @@ class AppStrings {
   AppStrings._();
 
   // App General
-  static const String appName = 'Syd Flows';
+  static const String appName = 'SYD FLOWS';
 
   // Navigation / Titles
   static const String titleSplash = 'Splash';

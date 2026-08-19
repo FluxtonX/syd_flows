@@ -6,16 +6,18 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_bottom_navigation.dart';
 import '../../../../core/widgets/app_success_banner.dart';
+import '../../../../core/widgets/gradient_background.dart';
 import 'workout_screen.dart';
 import 'workout_player_screen.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/workout_service.dart';
+import '../../../../core/services/subscription_service.dart';
+import '../../../profile/presentation/screens/subscription_screen.dart';
 
 class WorkoutDetailScreen extends StatefulWidget {
   final Workout workout;
 
-  const WorkoutDetailScreen({
-    super.key,
-    required this.workout,
-  });
+  const WorkoutDetailScreen({super.key, required this.workout});
 
   @override
   State<WorkoutDetailScreen> createState() => _WorkoutDetailScreenState();
@@ -32,8 +34,13 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     '1': {
       'category': 'YOGA',
       'instructor': 'WITH MAYA LINDEN',
-      'about': 'A slow, breath-led flow designed to ease tension and gently wake the body. Perfect for low-energy mornings.',
-      'benefits': ['Improves flexibility', 'Calms the nervous system', 'Boosts circulation'],
+      'about':
+          'A slow, breath-led flow designed to ease tension and gently wake the body. Perfect for low-energy mornings.',
+      'benefits': [
+        'Improves flexibility',
+        'Calms the nervous system',
+        'Boosts circulation',
+      ],
       'phases': [
         {'name': 'Follicular', 'bg': Color(0xFFFFD8B3)},
         {'name': 'Luteal', 'bg': Color(0xFFF3D5E4)},
@@ -44,7 +51,8 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     '2': {
       'category': 'PILATES',
       'instructor': 'WITH EMILY WATSON',
-      'about': 'A focused core session designed to build stability, alignment, and strength. Ideal for high-energy days.',
+      'about':
+          'A focused core session designed to build stability, alignment, and strength. Ideal for high-energy days.',
       'benefits': ['Strengthens core', 'Improves posture', 'Enhances balance'],
       'phases': [
         {'name': 'Follicular', 'bg': Color(0xFFFFD8B3)},
@@ -56,8 +64,13 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     '3': {
       'category': 'STRENGTH',
       'instructor': 'WITH MARCUS CHEN',
-      'about': 'A high-intensity strength circuit targeting major muscle groups. Great for maximum fat burn and power building.',
-      'benefits': ['Increases power', 'Boosts metabolism', 'Builds lean muscle'],
+      'about':
+          'A high-intensity strength circuit targeting major muscle groups. Great for maximum fat burn and power building.',
+      'benefits': [
+        'Increases power',
+        'Boosts metabolism',
+        'Builds lean muscle',
+      ],
       'phases': [
         {'name': 'Follicular', 'bg': Color(0xFFFFD8B3)},
         {'name': 'Ovulation', 'bg': Color(0xFFE8D4F0)},
@@ -68,7 +81,8 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     '4': {
       'category': 'MOBILITY',
       'instructor': 'WITH SARAH JENKINS',
-      'about': 'Gentle stretching and mobility drills to release tight muscles and open joints. Perfect recovery session.',
+      'about':
+          'Gentle stretching and mobility drills to release tight muscles and open joints. Perfect recovery session.',
       'benefits': ['Relieves tension', 'Enhances mobility', 'Reduces soreness'],
       'phases': [
         {'name': 'Luteal', 'bg': Color(0xFFF3D5E4)},
@@ -80,8 +94,13 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     '5': {
       'category': 'BARRE',
       'instructor': 'WITH ALYSIA SHARP',
-      'about': 'A low-impact, high-repetition workout utilizing ballet bar elements to sculpt and tone muscles.',
-      'benefits': ['Tones legs & glutes', 'Low impact', 'Improves coordination'],
+      'about':
+          'A low-impact, high-repetition workout utilizing ballet bar elements to sculpt and tone muscles.',
+      'benefits': [
+        'Tones legs & glutes',
+        'Low impact',
+        'Improves coordination',
+      ],
       'phases': [
         {'name': 'Follicular', 'bg': Color(0xFFFFD8B3)},
         {'name': 'Luteal', 'bg': Color(0xFFF3D5E4)},
@@ -92,7 +111,8 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     '6': {
       'category': 'CARDIO',
       'instructor': 'WITH DANIEL KRAUS',
-      'about': 'An outdoor cardio and breathing routine to oxygenate the body and boost mental clarity.',
+      'about':
+          'An outdoor cardio and breathing routine to oxygenate the body and boost mental clarity.',
       'benefits': ['Improves stamina', 'Boosts mood', 'Fresh air integration'],
       'phases': [
         {'name': 'Follicular', 'bg': Color(0xFFFFD8B3)},
@@ -131,24 +151,15 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
       ),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFFAF4ED),
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFFAF4ED),
-                Color(0xFFFBF0E8),
-                Color(0xFFFFD6E4),
-                Color(0xFFFFB8CE),
-              ],
-              stops: [0.0, 0.35, 0.75, 1.0],
-            ),
-          ),
-          child: Stack(
+      child: GradientBackground(
+        child: Scaffold(
+          backgroundColor: AppColors.transparent,
+          body: Stack(
             children: [
               // Scrollable Content
               Positioned.fill(
@@ -166,7 +177,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
 
                       // 3. Detail Content Sections
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.l,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -178,7 +191,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                             Text(
                               detail['about'],
                               style: AppTextStyles.bodyMedium.copyWith(
-                                color: AppColors.wellnessBrown.withValues(alpha: 0.9),
+                                color: AppColors.wellnessBrown.withValues(
+                                  alpha: 0.9,
+                                ),
                                 fontSize: 14.5,
                                 height: 1.45,
                               ),
@@ -190,7 +205,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                             const SizedBox(height: 12.0),
                             ...List.generate(
                               (detail['benefits'] as List).length,
-                              (index) => _buildBenefitCheckItem(detail['benefits'][index]),
+                              (index) => _buildBenefitCheckItem(
+                                detail['benefits'][index],
+                              ),
                             ),
                             AppSpacing.h24,
 
@@ -203,13 +220,17 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                             // Symptom-friendly Section
                             _buildSectionTitle('Symptom-friendly'),
                             const SizedBox(height: 10.0),
-                            _buildSymptomChips((detail['symptoms'] as List?) ?? []),
+                            _buildSymptomChips(
+                              (detail['symptoms'] as List?) ?? [],
+                            ),
                             AppSpacing.h24,
 
                             // You'll need Section
                             _buildSectionTitle('You\'ll need'),
                             const SizedBox(height: 10.0),
-                            _buildEquipmentChips((detail['equipment'] as List?) ?? []),
+                            _buildEquipmentChips(
+                              (detail['equipment'] as List?) ?? [],
+                            ),
                             AppSpacing.h24,
                           ],
                         ),
@@ -236,65 +257,86 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                     : -100.0,
                 left: 16.0,
                 right: 16.0,
-                child: Center(
-                  child: AppSuccessBanner(message: _bannerMessage),
-                ),
+                child: Center(child: AppSuccessBanner(message: _bannerMessage)),
               ),
             ],
           ),
-        ),
-        bottomNavigationBar: AppBottomNavigation(
-          currentIndex: 2,
-          onTap: (index) {
-            Navigator.pop(context);
-          },
+          bottomNavigationBar: AppBottomNavigation(
+            currentIndex: 2,
+            onTap: (index) {
+              Navigator.pop(context);
+            },
+          ),
         ),
       ),
     );
   }
 
   Widget _buildCoverImage() {
+    String coverUrl = widget.workout.imagePath;
+    if (coverUrl.isEmpty &&
+        widget.workout.videoId != null &&
+        widget.workout.videoId!.isNotEmpty) {
+      coverUrl =
+          'https://img.youtube.com/vi/${widget.workout.videoId}/hqdefault.jpg';
+    }
+
+    final isNetwork =
+        coverUrl.startsWith('http://') || coverUrl.startsWith('https://');
+
     return SizedBox(
       height: 300,
       child: Stack(
         children: [
           // Cover Image
           Positioned.fill(
-            child: (widget.workout.imagePath.startsWith('http://') ||
-                    widget.workout.imagePath.startsWith('https://'))
+            child: isNetwork
                 ? Image.network(
-                    widget.workout.imagePath,
+                    coverUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: const Color(0xFFFAF4ED),
-                      child: const Icon(
-                        Icons.movie_creation_outlined,
-                        color: AppColors.wellnessBrown,
-                        size: 48,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.wellnessPeachAccent,
+                            AppColors.wellnessPinkCategory,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
                     ),
                   )
-                : (widget.workout.imagePath.isNotEmpty
-                    ? Image.asset(
-                        widget.workout.imagePath,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: const Color(0xFFFAF4ED),
-                          child: const Icon(
-                            Icons.movie_creation_outlined,
-                            color: AppColors.wellnessBrown,
-                            size: 48,
+                : (coverUrl.isNotEmpty
+                      ? Image.asset(
+                          coverUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppColors.wellnessPeachAccent,
+                                      AppColors.wellnessPinkCategory,
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                              ),
+                        )
+                      : Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.wellnessPeachAccent,
+                                AppColors.wellnessPinkCategory,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                           ),
-                        ),
-                      )
-                    : Container(
-                        color: const Color(0xFFFAF4ED),
-                        child: const Icon(
-                          Icons.movie_creation_outlined,
-                          color: AppColors.wellnessBrown,
-                          size: 48,
-                        ),
-                      )),
+                        )),
           ),
           // Dark Gradient Overlay for play button readability
           Positioned.fill(
@@ -312,44 +354,60 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
               ),
             ),
           ),
-          // Play button in the center
+          // A premium item may be browsed, but playback requires an entitlement.
           Center(
-            child: GestureDetector(
-              onTap: () {
-                if (!widget.workout.hasVideo) {
-                  _triggerSuccessBanner('No video available for this workout');
-                  return;
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        WorkoutPlayerScreen(workout: widget.workout),
+            child: StreamBuilder<bool>(
+              stream: SubscriptionService.instance.streamHasPremiumAccess(),
+              builder: (context, snapshot) {
+                final isLocked = widget.workout.isPaid && snapshot.data != true;
+                return GestureDetector(
+                  onTap: () {
+                    if (!widget.workout.hasVideo) {
+                      _triggerSuccessBanner('No video available for this workout');
+                      return;
+                    }
+                    if (isLocked) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SubscriptionScreen(),
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => WorkoutPlayerScreen(workout: widget.workout),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(20.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      isLocked
+                          ? Icons.lock_rounded
+                          : (widget.workout.hasVideo
+                              ? Icons.play_arrow_rounded
+                              : Icons.videocam_off_rounded),
+                      color: AppColors.wellnessBrown,
+                      size: 34,
+                    ),
                   ),
                 );
               },
-              child: Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(20.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  widget.workout.hasVideo
-                      ? Icons.play_arrow_rounded
-                      : Icons.videocam_off_rounded,
-                  color: AppColors.wellnessBrown,
-                  size: 34,
-                ),
-              ),
             ),
           ),
         ],
@@ -386,7 +444,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                 setState(() {
                   _isSaved = !_isSaved;
                 });
-                _triggerSuccessBanner(_isSaved ? 'Saved offline' : 'Removed from offline');
+                _triggerSuccessBanner(
+                  _isSaved ? 'Saved offline' : 'Removed from offline',
+                );
               },
               child: Container(
                 width: 40,
@@ -396,32 +456,65 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                   borderRadius: BorderRadius.circular(12.0),
                 ),
                 child: Icon(
-                  _isSaved ? Icons.download_done_rounded : Icons.download_rounded,
-                  color: _isSaved ? AppColors.wellnessPinkText : AppColors.wellnessBrown,
+                  _isSaved
+                      ? Icons.download_done_rounded
+                      : Icons.download_rounded,
+                  color: _isSaved
+                      ? AppColors.wellnessPinkText
+                      : AppColors.wellnessBrown,
                   size: 20,
                 ),
               ),
             ),
             const SizedBox(width: 10.0),
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isLiked = !_isLiked;
-                });
+            StreamBuilder<bool>(
+              stream: () {
+                final uid = AuthService.instance.currentUser?.uid ?? '';
+                return uid.isNotEmpty
+                    ? WorkoutService.instance.streamIsFavorite(
+                        uid,
+                        widget.workout.id,
+                      )
+                    : Stream.value(false);
+              }(),
+              builder: (context, favSnapshot) {
+                final isFav = favSnapshot.data ?? _isLiked;
+                return GestureDetector(
+                  onTap: () async {
+                    final uid = AuthService.instance.currentUser?.uid ?? '';
+                    if (uid.isEmpty) return;
+                    final nowFav = await WorkoutService.instance.toggleFavorite(
+                      uid: uid,
+                      workout: widget.workout,
+                    );
+                    setState(() {
+                      _isLiked = nowFav;
+                    });
+                    _triggerSuccessBanner(
+                      nowFav
+                          ? 'Added to Favorites ❤️'
+                          : 'Removed from Favorites',
+                    );
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: Icon(
+                      isFav
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: isFav
+                          ? AppColors.wellnessPinkText
+                          : AppColors.wellnessBrown,
+                      size: 20,
+                    ),
+                  ),
+                );
               },
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                child: Icon(
-                  _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                  color: _isLiked ? AppColors.wellnessPinkText : AppColors.wellnessBrown,
-                  size: 20,
-                ),
-              ),
             ),
           ],
         ),
@@ -448,27 +541,13 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Subtitle: YOGA · WITH MAYA LINDEN
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: detail['category'] ?? widget.workout.category,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: const Color(0xFFEE8AA4),
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                TextSpan(
-                  text: '  ·  ${detail['instructor']}',
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: const Color(0xFF8C7B70),
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ],
+          // Category Label
+          Text(
+            (detail['category'] ?? widget.workout.category).toString().toUpperCase(),
+            style: AppTextStyles.labelSmall.copyWith(
+              color: const Color(0xFFEE8AA4),
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 8.0),
@@ -637,10 +716,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFFFF6F9),
             borderRadius: BorderRadius.circular(12.0),
-            border: Border.all(
-              color: const Color(0xFFFFD8E5),
-              width: 1.0,
-            ),
+            border: Border.all(color: const Color(0xFFFFD8E5), width: 1.0),
           ),
           child: Text(
             symptom.toString(),
@@ -665,10 +741,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFFFF6F9),
             borderRadius: BorderRadius.circular(12.0),
-            border: Border.all(
-              color: const Color(0xFFFFD8E5),
-              width: 1.0,
-            ),
+            border: Border.all(color: const Color(0xFFFFD8E5), width: 1.0),
           ),
           child: Text(
             item.toString(),

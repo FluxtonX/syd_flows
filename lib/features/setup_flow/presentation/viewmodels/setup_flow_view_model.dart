@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/user_service.dart';
 
-
 class SetupFlowViewModel extends ChangeNotifier {
   int _currentStep = 0;
   bool _isLoading = false;
 
   // Step 1: First Period
-  DateTime _lastPeriodStart = DateTime(2026, 6, 30); // Default to June 30, 2026 as seen in Figma
+  DateTime _lastPeriodStart = DateTime.now();
 
   // Step 2: Cycle Length
   int _cycleLength = 28;
@@ -82,7 +81,6 @@ class SetupFlowViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
-
 
   // Setters
   void setLastPeriodStart(DateTime date) {

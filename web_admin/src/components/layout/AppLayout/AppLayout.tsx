@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants';
 import { ThemeToggle } from '@/components/ui/ThemeToggle/ThemeToggle';
 import { ConfirmModal } from '@/components/ui/ConfirmModal/ConfirmModal';
-import logoImg from '@/assets/images/Logo.png';
+import logoImg from '@/assets/images/web_logo.jpeg';
 import styles from './AppLayout.module.css';
 
 interface AppLayoutProps {
@@ -22,6 +22,11 @@ export function AppLayout({ children }: AppLayoutProps) {
   const userInitial = user?.email ? user.email.charAt(0).toUpperCase() : 'A';
   const userDisplayName = user?.displayName || 'Admin';
   const userEmail = user?.email || 'admin@sydflows.com';
+  const pageTitle = location.pathname === ROUTES.UPLOAD
+    ? 'Upload workout'
+    : location.pathname === ROUTES.VIDEOS
+      ? 'Video library'
+      : 'Overview';
 
   return (
     <div className={styles.layout}>
@@ -56,19 +61,6 @@ export function AppLayout({ children }: AppLayoutProps) {
             </NavLink>
 
             <NavLink
-              to={ROUTES.VIDEOS}
-              className={({ isActive }) =>
-                `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
-              }
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M23 7l-7 5 7 5V7z" />
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-              </svg>
-              <span>Workout Videos</span>
-            </NavLink>
-
-            <NavLink
               to={ROUTES.UPLOAD}
               className={({ isActive }) =>
                 `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
@@ -80,6 +72,19 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
               <span>Upload Video</span>
+            </NavLink>
+
+            <NavLink
+              to={ROUTES.VIDEOS}
+              className={({ isActive }) =>
+                `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
+              }
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M8 4v16M3 9h18" />
+              </svg>
+              <span>Video Library</span>
             </NavLink>
           </nav>
         </div>
@@ -115,9 +120,16 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </svg>
               </NavLink>
             )}
+            <span className={styles.contextLabel}>{pageTitle}</span>
           </div>
 
           <div className={styles.headerRight}>
+            <NavLink to={ROUTES.UPLOAD} className={styles.headerUploadLink}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              <span>New video</span>
+            </NavLink>
             <ThemeToggle />
             <div className={styles.userPill}>
               <div className={styles.avatar}>{userInitial}</div>

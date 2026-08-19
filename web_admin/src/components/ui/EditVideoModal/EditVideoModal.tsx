@@ -37,6 +37,7 @@ export function EditVideoModal({
   const [description, setDescription] = useState('');
   const [videoSource, setVideoSource] = useState<'youtube' | 'custom'>('custom');
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [premium, setPremium] = useState<boolean>(true);
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +54,7 @@ export function EditVideoModal({
       setDescription(video.description || '');
       setVideoSource(video.videoSource || (video.youtubeUrl ? 'youtube' : 'custom'));
       setYoutubeUrl(video.youtubeUrl || '');
+      setPremium(video.premium ?? video.isPaid ?? (video.isFree !== undefined ? !video.isFree : true));
       setError(null);
     }
   }, [video]);
@@ -79,6 +81,9 @@ export function EditVideoModal({
       }
     }
 
+    const isPaid = premium;
+    const isFree = !premium;
+
     const updatedData: Partial<Omit<VideoDocument, 'createdAt'>> = {
       title: title.trim(),
       trainer: trainer.trim(),
@@ -89,9 +94,9 @@ export function EditVideoModal({
       duration: duration.trim(),
       description: description.trim(),
       videoSource,
-      premium: videoSource === 'custom',
-      isPaid: videoSource === 'custom',
-      isFree: videoSource === 'youtube',
+      premium: isPaid,
+      isPaid: isPaid,
+      isFree: isFree,
       ...(videoSource === 'youtube'
         ? {
             youtubeUrl: youtubeUrl.trim(),
@@ -255,7 +260,34 @@ export function EditVideoModal({
             />
           </div>
 
-          {/* Video Source Access */}
+          {/* Access Tier & Video Source */}
+          <div className={styles.row2}>
+            <div className={styles.field}>
+              <label className={styles.label}>Access Tier *</label>
+              <select
+                className={styles.select}
+                value={premium ? 'paid' : 'free'}
+                onChange={(e) => setPremium(e.target.value === 'paid')}
+              >
+                <option value="free">🎁 Free Workout</option>
+                <option value="paid">🔒 Premium / Paid</option>
+              </select>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label}>Video Source *</label>
+              <select
+                className={styles.select}
+                value={videoSource}
+                onChange={(e) => setVideoSource(e.target.value as 'youtube' | 'custom')}
+              >
+                <option value="custom">📁 Custom File Upload</option>
+                <option value="youtube">🔗 YouTube Link Embed</option>
+              </select>
+            </div>
+          </div>
+
+          {/* YouTube Video URL */}
           {videoSource === 'youtube' && (
             <div className={styles.field}>
               <label className={styles.label}>YouTube Video URL</label>

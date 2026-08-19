@@ -10,9 +10,9 @@ export interface VideoDocument {
   difficulty: string;
   duration: string;
   trainer: string;
-  premium: boolean;
-  isPaid: boolean;
-  isFree: boolean;
+  premium?: boolean;
+  isPaid?: boolean;
+  isFree?: boolean;
   videoSource: 'youtube' | 'custom';
   youtubeUrl?: string;
   youtubeId?: string;

@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getVideoCount } from '@/services/firebase/firestore';
 import { Button } from '@/components/ui/Button/Button';
 import { AppLayout } from '@/components/layout/AppLayout/AppLayout';
-import { RecentVideos } from '@/components/ui/RecentVideos/RecentVideos';
+import { WorkoutVideosTable } from '@/components/ui/WorkoutVideosTable/WorkoutVideosTable';
 import { ROUTES } from '@/constants';
 import styles from './DashboardPage.module.css';
 
@@ -33,7 +33,7 @@ export function DashboardPage() {
               Welcome back, {displayName} 👋
             </h1>
             <p className={styles.subtitle}>
-              Manage your workout videos
+              Your content workspace for SYD FLOWS.
             </p>
           </div>
         </section>
@@ -124,6 +124,14 @@ export function DashboardPage() {
           </div>
           <div className={styles.ctaActions}>
             <Button
+              id="view-library-btn"
+              variant="ghost"
+              size="lg"
+              onClick={() => navigate(ROUTES.VIDEOS)}
+            >
+              View library
+            </Button>
+            <Button
               id="upload-video-btn"
               size="lg"
               onClick={() => navigate(ROUTES.UPLOAD)}
@@ -139,8 +147,8 @@ export function DashboardPage() {
           </div>
         </section>
 
-        {/* ── Recent Videos Table ── */}
-        <RecentVideos />
+        {/* ── Full Workout Videos Table with Filters ── */}
+        <WorkoutVideosTable />
       </div>
     </AppLayout>
   );

@@ -7,6 +7,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_success_banner.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/workout_service.dart';
 import '../screens/workout_screen.dart';
 
 class ConfettiParticle {
@@ -167,6 +168,24 @@ class _WorkoutCompleteScreenState extends State<WorkoutCompleteScreen> {
   Timer? _bannerTimer;
 
   @override
+  void initState() {
+    super.initState();
+    _saveCompletionRecord();
+  }
+
+  void _saveCompletionRecord() {
+    final user = AuthService.instance.currentUser;
+    if (user != null) {
+      WorkoutService.instance.logCompletedWorkout(
+        uid: user.uid,
+        workout: widget.workout,
+        duration: widget.duration,
+        calories: widget.calories,
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _bannerTimer?.cancel();
     super.dispose();
@@ -227,7 +246,9 @@ class _WorkoutCompleteScreenState extends State<WorkoutCompleteScreen> {
                         final user = AuthService.instance.currentUser;
                         final rawName = user?.displayName ?? '';
                         final firstName = rawName.trim().isNotEmpty
-                            ? (rawName.contains(' ') ? rawName.split(' ').first : rawName)
+                            ? (rawName.contains(' ')
+                                  ? rawName.split(' ').first
+                                  : rawName)
                             : '';
                         final message = firstName.isNotEmpty
                             ? 'Beautiful work, $firstName'

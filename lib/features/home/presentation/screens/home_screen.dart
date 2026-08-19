@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -11,11 +13,16 @@ import '../../../../core/widgets/app_bottom_navigation.dart';
 import '../../../../core/widgets/app_success_banner.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../cycle/presentation/screens/cycle_screen.dart';
+import '../../../cycle/presentation/widgets/cycle_provider.dart';
+import '../../../cycle/data/models/cycle_types.dart';
 import '../../../workout/presentation/screens/workout_screen.dart';
+import '../../../workout/presentation/screens/workout_detail_screen.dart';
 import '../../../progress/presentation/screens/progress_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/local_storage_service.dart';
 import '../../../../core/services/user_service.dart';
+import '../../../../core/services/workout_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -75,48 +82,60 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return GradientBackground(
-      child: Scaffold(
-        backgroundColor: AppColors.transparent,
-        body: Stack(
-          children: [
-            // Active Tab Content
-            Positioned.fill(
-              child: SafeArea(
-                bottom: false,
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: [
-                    _buildTodayTab(),
-                    const CycleScreen(),
-                    const WorkoutScreen(),
-                    const ProgressScreen(),
-                    const ProfileScreen(),
-                  ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: GradientBackground(
+        child: Scaffold(
+          backgroundColor: AppColors.transparent,
+          extendBody: false,
+          body: Stack(
+            children: [
+              // Active Tab Content
+              Positioned.fill(
+                child: SafeArea(
+                  bottom: false,
+                  child: IndexedStack(
+                    index: _currentIndex,
+                    children: [
+                      _buildTodayTab(),
+                      const CycleScreen(),
+                      const WorkoutScreen(),
+                      const ProgressScreen(),
+                      const ProfileScreen(),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Top Success Banner ("Logged: Cramps")
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutBack,
-              top: _showSuccessBanner
-                  ? MediaQuery.of(context).padding.top + 12.0
-                  : -100.0,
-              left: 16.0,
-              right: 16.0,
-              child: _buildSuccessBanner(),
-            ),
-          ],
-        ),
-        bottomNavigationBar: AppBottomNavigation(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
+              // Top Success Banner ("Logged: Cramps")
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeOutBack,
+                top: _showSuccessBanner
+                    ? MediaQuery.of(context).padding.top + 12.0
+                    : -100.0,
+                left: 16.0,
+                right: 16.0,
+                child: _buildSuccessBanner(),
+              ),
+            ],
+          ),
+          bottomNavigationBar: AppBottomNavigation(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+          ),
         ),
       ),
     );
@@ -127,34 +146,116 @@ class _HomeScreenState extends State<HomeScreen> {
     return AppSuccessBanner(message: 'Logged: $_successSymptom');
   }
 
+  Workout _getPhaseMatchedWorkout(CyclePhase phase, List<Workout> workouts) {
+    if (workouts.isEmpty) {
+      return const Workout(
+        id: 'default_today_pick',
+        title: 'Sunrise Flow Yoga',
+        category: 'YOGA',
+        duration: 22,
+        difficulty: 'Gentle',
+        type: 'Yoga',
+        equipment: 'Mat',
+        imagePath:
+            'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=600&auto=format&fit=crop',
+        videoUrl: 'https://www.youtube.com/watch?v=inpok4MKVLM',
+      );
+    }
+
+    final validWorkouts = workouts.where((w) => w.hasVideo).toList();
+    final listToFilter = validWorkouts.isNotEmpty ? validWorkouts : workouts;
+
+    List<Workout> matched = [];
+    switch (phase) {
+      case CyclePhase.menstrual:
+        matched = listToFilter.where((w) {
+          final cat = w.category.toLowerCase();
+          return (cat.contains('yoga') || cat.contains('stretch')) &&
+              !cat.contains('power') &&
+              !cat.contains('hiit');
+        }).toList();
+        break;
+      case CyclePhase.follicular:
+        matched = listToFilter.where((w) {
+          final cat = w.category.toLowerCase();
+          return cat.contains('pilates') || cat.contains('sculpt');
+        }).toList();
+        break;
+      case CyclePhase.ovulation:
+        matched = listToFilter.where((w) {
+          final cat = w.category.toLowerCase();
+          return cat.contains('strength') ||
+              cat.contains('hiit') ||
+              cat.contains('power');
+        }).toList();
+        break;
+      case CyclePhase.luteal:
+        matched = listToFilter.where((w) {
+          final cat = w.category.toLowerCase();
+          return cat.contains('pilates') ||
+              cat.contains('stretch') ||
+              cat.contains('flow');
+        }).toList();
+        break;
+      case CyclePhase.unknown:
+        matched = listToFilter;
+        break;
+    }
+
+    if (matched.isNotEmpty) {
+      return matched.first;
+    }
+    return listToFilter.first;
+  }
+
   // --- Tab 0: TODAY TAB ---
   Widget _buildTodayTab() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(
-        bottom: AppSpacing.l,
-      ), // Standard bottom spacing
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppSpacing.h16,
-            _buildHeader(),
-            AppSpacing.h16,
-            _buildCycleStatusCard(),
-            AppSpacing.h24,
-            _buildSymptomsSection(),
-            AppSpacing.h24,
-            _buildTodayPickSection(),
-            AppSpacing.h24,
-            _buildQuickActionsRow(),
-            AppSpacing.h24,
-            _buildThisWeekChartCard(),
-            AppSpacing.h16,
-          ],
-        ),
-      ),
+    final user = AuthService.instance.currentUser;
+    final cycleNotifier = CycleProvider.ofNullable(context);
+    final currentPhase =
+        cycleNotifier?.currentStatus.phase ?? CyclePhase.follicular;
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: user != null
+          ? FirebaseFirestore.instance.collection('videos').snapshots()
+          : const Stream.empty(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+        final allWorkouts = docs
+            .map((doc) => Workout.fromFirestore(doc.data(), doc.id))
+            .toList();
+
+        final recommendedWorkout = _getPhaseMatchedWorkout(
+          currentPhase,
+          allWorkouts,
+        );
+
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: AppSpacing.l),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppSpacing.h16,
+                _buildHeader(),
+                AppSpacing.h16,
+                _buildCycleStatusCard(),
+                AppSpacing.h24,
+                _buildSymptomsSection(),
+                AppSpacing.h24,
+                _buildTodayPickSection(recommendedWorkout),
+                AppSpacing.h24,
+                _buildQuickActionsRow(recommendedWorkout),
+                AppSpacing.h24,
+                _buildThisWeekChartCard(),
+                AppSpacing.h16,
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -219,58 +320,85 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             children: [
               // User Real Avatar Logo
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.white,
-                  border: Border.all(
-                    color: AppColors.wellnessBrown.withValues(alpha: 0.15),
-                    width: 1.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.wellnessBrown.withValues(alpha: 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+              ValueListenableBuilder<String?>(
+                valueListenable:
+                    LocalStorageService.instance.profileImageNotifier,
+                builder: (context, localImagePath, _) {
+                  final hasLocalFile =
+                      localImagePath != null &&
+                      localImagePath.isNotEmpty &&
+                      File(localImagePath).existsSync();
+
+                  ImageProvider? imageProvider;
+                  if (hasLocalFile) {
+                    imageProvider = FileImage(File(localImagePath));
+                  } else if (photoUrl != null && photoUrl.isNotEmpty) {
+                    if (photoUrl.startsWith('/') &&
+                        File(photoUrl).existsSync()) {
+                      imageProvider = FileImage(File(photoUrl));
+                    } else {
+                      imageProvider = NetworkImage(photoUrl);
+                    }
+                  }
+
+                  return Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.white,
+                      border: Border.all(
+                        color: AppColors.wellnessBrown.withValues(alpha: 0.15),
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.wellnessBrown.withValues(
+                            alpha: 0.04,
+                          ),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: photoUrl != null && photoUrl.isNotEmpty
-                      ? Image.network(
-                          photoUrl,
-                          width: 44,
-                          height: 44,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                color: AppColors.wellnessPink.withValues(
-                                  alpha: 0.3,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  initial,
-                                  style: AppTextStyles.titleMedium.copyWith(
-                                    color: AppColors.wellnessBrown,
-                                    fontWeight: FontWeight.bold,
+                    child: ClipOval(
+                      child: imageProvider != null
+                          ? Image(
+                              image: imageProvider,
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: AppColors.wellnessPink.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      initial,
+                                      style: AppTextStyles.titleMedium.copyWith(
+                                        color: AppColors.wellnessBrown,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
+                            )
+                          : Container(
+                              color: AppColors.wellnessPink.withValues(
+                                alpha: 0.3,
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                initial,
+                                style: AppTextStyles.titleMedium.copyWith(
+                                  color: AppColors.wellnessBrown,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                        )
-                      : Container(
-                          color: AppColors.wellnessPink.withValues(alpha: 0.3),
-                          alignment: Alignment.center,
-                          child: Text(
-                            initial,
-                            style: AppTextStyles.titleMedium.copyWith(
-                              color: AppColors.wellnessBrown,
-                              fontWeight: FontWeight.bold,
                             ),
-                          ),
-                        ),
-                ),
+                    ),
+                  );
+                },
               ),
               AppSpacing.w16,
               Column(
@@ -375,6 +503,60 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // --- Cycle Status Card ---
   Widget _buildCycleStatusCard() {
+    // Read from CycleStateNotifier — the authoritative computed cycle state
+    final cycleNotifier = CycleProvider.ofNullable(context);
+
+    if (cycleNotifier == null) {
+      return _buildCycleStatusCardContent(
+        cycleDay: 1,
+        phaseName: 'Follicular phase',
+        headlineText: 'Rising energy — build and explore',
+        daysUntilNext: 27,
+      );
+    }
+
+    final status = cycleNotifier.currentStatus;
+    final phase = status.phase;
+
+    String phaseName;
+    String headlineText;
+    switch (phase) {
+      case CyclePhase.menstrual:
+        phaseName = 'Menstrual phase';
+        headlineText = 'Rest & recharge — prioritize gentle movement';
+        break;
+      case CyclePhase.follicular:
+        phaseName = 'Follicular phase';
+        headlineText = 'Rising energy — build and explore';
+        break;
+      case CyclePhase.ovulation:
+        phaseName = 'Ovulation phase';
+        headlineText = 'Peak energy & focus — push your limits';
+        break;
+      case CyclePhase.luteal:
+        phaseName = 'Luteal phase';
+        headlineText = 'Steady strength — listen to your body';
+        break;
+      case CyclePhase.unknown:
+        phaseName = 'Follicular phase';
+        headlineText = 'Rising energy — build and explore';
+        break;
+    }
+
+    return _buildCycleStatusCardContent(
+      cycleDay: status.cycleDay,
+      phaseName: phaseName,
+      headlineText: headlineText,
+      daysUntilNext: status.daysRemaining,
+    );
+  }
+
+  Widget _buildCycleStatusCardContent({
+    required int cycleDay,
+    required String phaseName,
+    required String headlineText,
+    required int daysUntilNext,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -422,7 +604,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   AppSpacing.h8,
                   Text(
-                    'Rising energy — build and explore',
+                    headlineText,
                     style: AppTextStyles.headlineSmall.copyWith(
                       color: AppColors.wellnessBrown,
                       fontWeight: FontWeight.bold,
@@ -432,7 +614,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   AppSpacing.h4,
                   Text(
-                    'Rising energy • 20 days until your next period',
+                    'Rising energy • $daysUntilNext days until your next period',
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.wellnessGray,
                     ),
@@ -468,7 +650,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               Text(
-                                '0',
+                                '$cycleDay',
                                 style: AppTextStyles.displayMedium.copyWith(
                                   color: AppColors.wellnessBrown,
                                   fontWeight: FontWeight.w700,
@@ -489,7 +671,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   borderRadius: BorderRadius.circular(100.0),
                                 ),
                                 child: Text(
-                                  'Follicular phase',
+                                  phaseName,
                                   style: AppTextStyles.labelSmall.copyWith(
                                     color: AppColors.wellnessBrown,
                                     fontWeight: FontWeight.w600,
@@ -624,7 +806,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // --- Today's Pick Section ---
-  Widget _buildTodayPickSection() {
+  Widget _buildTodayPickSection(Workout workout) {
+    final user = AuthService.instance.currentUser;
+    final coverImage = workout.imagePath.isNotEmpty
+        ? workout.imagePath
+        : 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=600&auto=format&fit=crop';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -638,161 +825,216 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(
-              'See all',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.wellnessPinkCategory,
-                fontWeight: FontWeight.bold,
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _currentIndex = 2; // Switch to Workouts tab
+                });
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Text(
+                'See all',
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.wellnessPinkCategory,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
         ),
         AppSpacing.h16,
-        // Beautiful Cover Card
-        Container(
-          height: 190,
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.r24,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.wellnessBrown.withValues(alpha: 0.1),
-                blurRadius: 18.0,
-                offset: const Offset(0, 8),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => WorkoutDetailScreen(workout: workout),
               ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: AppRadius.r24,
-            child: Stack(
-              children: [
-                // Network yoga background image
-                Positioned.fill(
-                  child: Image.network(
-                    'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=600&auto=format&fit=crop',
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      // Fallback gradient while loading
-                      return Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.wellnessPeachAccent,
-                              AppColors.wellnessPinkCategory,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.wellnessPeachAccent,
-                              AppColors.wellnessPinkCategory,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                // Dark bottom gradient overlay
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.black.withValues(alpha: 0.0),
-                          AppColors.black.withValues(alpha: 0.65),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
-                ),
-                // Chip & Heart Icon at top
-                Positioned(
-                  top: 14,
-                  left: 14,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10.0,
-                      vertical: 5.0,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.wellnessSymptomBgSelected,
-                      borderRadius: AppRadius.rCircular,
-                    ),
-                    child: Text(
-                      'Matched to your phase',
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: AppColors.wellnessPinkText,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 14,
-                  right: 14,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(
-                      color: AppColors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.favorite_rounded,
-                      color: AppColors.wellnessPinkCategory,
-                      size: 16,
-                    ),
-                  ),
-                ),
-                // Text at bottom
-                Positioned(
-                  bottom: 16,
-                  left: 16,
-                  right: 16,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'YOGA • GENTLE',
-                        style: AppTextStyles.labelSmall.copyWith(
-                          color: AppColors.white.withValues(alpha: 0.8),
-                          letterSpacing: 1.0,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      AppSpacing.h4,
-                      Text(
-                        'Sunrise Flow Yoga',
-                        style: AppTextStyles.titleLarge.copyWith(
-                          color: AppColors.white,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      AppSpacing.h4,
-                      Text(
-                        '22 min • 140 kcal • with Maya Linden',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.white.withValues(alpha: 0.8),
-                        ),
-                      ),
-                    ],
-                  ),
+            );
+          },
+          child: Container(
+            height: 190,
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.r24,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.wellnessBrown.withValues(alpha: 0.1),
+                  blurRadius: 18.0,
+                  offset: const Offset(0, 8),
                 ),
               ],
+            ),
+            child: ClipRRect(
+              borderRadius: AppRadius.r24,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: coverImage.startsWith('http')
+                        ? Image.network(
+                            coverImage,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppColors.wellnessPeachAccent,
+                                        AppColors.wellnessPinkCategory,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                ),
+                          )
+                        : Image.asset(
+                            coverImage,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppColors.wellnessPeachAccent,
+                                        AppColors.wellnessPinkCategory,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                ),
+                          ),
+                  ),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.black.withValues(alpha: 0.0),
+                            AppColors.black.withValues(alpha: 0.65),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 14,
+                    left: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10.0,
+                        vertical: 5.0,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.wellnessSymptomBgSelected,
+                        borderRadius: AppRadius.rCircular,
+                      ),
+                      child: Text(
+                        'Matched to your phase',
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.wellnessPinkText,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 14,
+                    right: 14,
+                    child: StreamBuilder<bool>(
+                      stream: user != null
+                          ? WorkoutService.instance.streamIsFavorite(
+                              user.uid,
+                              workout.id,
+                            )
+                          : Stream.value(false),
+                      builder: (context, favSnapshot) {
+                        final isFav = favSnapshot.data ?? false;
+                        return GestureDetector(
+                          onTap: () async {
+                            if (user == null) return;
+                            final nowFav = await WorkoutService.instance
+                                .toggleFavorite(
+                                  uid: user.uid,
+                                  workout: workout,
+                                );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    nowFav
+                                        ? 'Added to Favorites ❤️'
+                                        : 'Removed from Favorites',
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                  backgroundColor: AppColors.wellnessBrown,
+                                ),
+                              );
+                            }
+                          },
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: const BoxDecoration(
+                              color: AppColors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isFav
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              color: isFav
+                                  ? AppColors.wellnessPinkText
+                                  : AppColors.wellnessPinkCategory,
+                              size: 18,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 16,
+                    left: 16,
+                    right: 16,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${workout.category} • ${workout.difficulty.toUpperCase()}',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.white.withValues(alpha: 0.8),
+                            letterSpacing: 1.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        AppSpacing.h4,
+                        Text(
+                          workout.title,
+                          style: AppTextStyles.titleLarge.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        AppSpacing.h4,
+                        Text(
+                          '${workout.duration} min • ${workout.type}',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -801,17 +1043,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // --- Quick Actions Row ---
-  Widget _buildQuickActionsRow() {
+  Widget _buildQuickActionsRow(Workout recommendedWorkout) {
     return Row(
       children: [
         Expanded(
           child: _buildQuickActionCard(
             title: 'Continue',
-            subtitle: 'Pilates • 12m left',
+            subtitle:
+                '${recommendedWorkout.type} • ${recommendedWorkout.duration}m',
             icon: Icons.play_arrow_outlined,
-            cardBg: AppColors.wellnessPinkCardBg, // Soft pink background
+            cardBg: AppColors.wellnessPinkCardBg,
             iconBg: AppColors.white,
             iconColor: AppColors.wellnessBrown,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      WorkoutDetailScreen(workout: recommendedWorkout),
+                ),
+              );
+            },
           ),
         ),
         AppSpacing.w8,
@@ -820,10 +1072,14 @@ class _HomeScreenState extends State<HomeScreen> {
             title: 'Log period',
             subtitle: 'Tap to add',
             icon: Icons.water_drop_outlined,
-            cardBg:
-                AppColors.wellnessBeigeCardBg, // Soft cream/beige background
+            cardBg: AppColors.wellnessBeigeCardBg,
             iconBg: AppColors.white,
             iconColor: AppColors.wellnessBrown,
+            onTap: () {
+              setState(() {
+                _currentIndex = 1; // Cycle tab
+              });
+            },
           ),
         ),
         AppSpacing.w8,
@@ -832,9 +1088,14 @@ class _HomeScreenState extends State<HomeScreen> {
             title: 'Progress',
             subtitle: 'View trends',
             icon: Icons.trending_up_rounded,
-            cardBg: AppColors.white, // White background
-            iconBg: AppColors.wellnessPinkBg, // Soft pink circle background
+            cardBg: AppColors.white,
+            iconBg: AppColors.wellnessPinkBg,
             iconColor: AppColors.wellnessBrown,
+            onTap: () {
+              setState(() {
+                _currentIndex = 3; // Progress tab
+              });
+            },
           ),
         ),
       ],
@@ -848,202 +1109,243 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color cardBg,
     required Color iconBg,
     required Color iconColor,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      height: 112,
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 14.0),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(24.0),
-        boxShadow: cardBg == AppColors.white
-            ? [
-                BoxShadow(
-                  color: AppColors.wellnessBrown.withValues(alpha: 0.04),
-                  blurRadius: 10.0,
-                  offset: const Offset(0, 4),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 112,
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 14.0),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(24.0),
+          boxShadow: cardBg == AppColors.white
+              ? [
+                  BoxShadow(
+                    color: AppColors.wellnessBrown.withValues(alpha: 0.04),
+                    blurRadius: 10.0,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+              child: Icon(icon, color: iconColor, size: 18),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.wellnessBrown,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.0,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ]
-            : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 18),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: AppColors.wellnessBrown,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13.0,
+                AppSpacing.h4,
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.wellnessGray,
+                    fontSize: 10.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              AppSpacing.h4,
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.wellnessGray,
-                  fontSize: 10.5,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   // --- This Week Session Chart Card ---
   Widget _buildThisWeekChartCard() {
-    // Session completion minutes data matching the mockup exactly
-    final chartData = [
-      {'day': 'M', 'val': 0.35, 'color': AppColors.wellnessPinkCardBg},
-      {'day': 'T', 'val': 0.15, 'color': AppColors.wellnessPinkCardBg},
-      {'day': 'W', 'val': 0.85, 'color': AppColors.wellnessPinkCardBg},
-      {'day': 'T', 'val': 0.15, 'color': AppColors.wellnessPinkCardBg},
-      {'day': 'F', 'val': 0.65, 'color': AppColors.wellnessPinkCardBg},
-      {
-        'day': 'S',
-        'val': 0.40,
-        'color': AppColors.wellnessPinkSaturday,
-      }, // Dark pink Saturday!
-      {'day': 'S', 'val': 0.75, 'color': AppColors.wellnessPinkCardBg},
-    ];
+    final user = AuthService.instance.currentUser;
 
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: AppRadius.r24,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.wellnessBrown.withValues(alpha: 0.05),
-            blurRadius: 15.0,
-            offset: const Offset(0, 8),
+    return StreamBuilder<List<CompletedWorkoutRecord>>(
+      stream: user != null
+          ? WorkoutService.instance.streamCurrentWeekWorkouts(user.uid)
+          : Stream.value([]),
+      builder: (context, snapshot) {
+        final records = snapshot.data ?? [];
+
+        // Daily minutes array for Mon (0) to Sun (6)
+        final List<int> dayMinutes = List.filled(7, 0);
+        int totalMinutes = 0;
+        int completedSessions = records.length;
+
+        for (final rec in records) {
+          final weekdayIndex = rec.completedAt.weekday - 1;
+          if (weekdayIndex >= 0 && weekdayIndex < 7) {
+            dayMinutes[weekdayIndex] += rec.duration;
+            totalMinutes += rec.duration;
+          }
+        }
+
+        // Max daily minutes for scaling (minimum 45m target)
+        int maxDailyMinutes = 45;
+        for (final m in dayMinutes) {
+          if (m > maxDailyMinutes) maxDailyMinutes = m;
+        }
+
+        const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+        final chartData = List.generate(7, (index) {
+          final mins = dayMinutes[index];
+          // Empty state (0 mins tracked): fraction is 0.0 => NO bar line
+          final double fraction = mins > 0
+              ? (mins / maxDailyMinutes).clamp(0.18, 1.0)
+              : 0.0;
+
+          return {
+            'day': days[index],
+            'val': fraction,
+            'color':
+                AppColors.wellnessPinkSaturday, // Unified solid theme color
+          };
+        });
+
+        return Container(
+          padding: const EdgeInsets.all(20.0),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: AppRadius.r24,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.wellnessBrown.withValues(alpha: 0.05),
+                blurRadius: 15.0,
+                offset: const Offset(0, 8),
+              ),
+            ],
+            border: Border.all(
+              color: AppColors.wellnessBeige.withValues(alpha: 0.06),
+              width: 1.0,
+            ),
           ),
-        ],
-        border: Border.all(
-          color: AppColors.wellnessBeige.withValues(alpha: 0.06),
-          width: 1.0,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Column(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'This week',
-                    style: AppTextStyles.titleMedium.copyWith(
-                      color: AppColors.wellnessBrown,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'This week',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          color: AppColors.wellnessBrown,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2.0),
+                      Text(
+                        '$completedSessions of 5 sessions complete',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.wellnessGray,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 2.0),
-                  Text(
-                    '4 of 5 sessions complete',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.wellnessGray,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '$totalMinutes',
+                        style: AppTextStyles.headlineMedium.copyWith(
+                          color: AppColors.wellnessBrown,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0,
+                        ),
+                      ),
+                      Text(
+                        'MINUTES',
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.wellnessGray,
+                          fontSize: 9.0,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '112',
-                    style: AppTextStyles.headlineMedium.copyWith(
-                      color: AppColors.wellnessBrown,
-                      fontWeight: FontWeight.bold,
-                      height: 1.0,
-                    ),
-                  ),
-                  Text(
-                    'MINUTES',
-                    style: AppTextStyles.labelSmall.copyWith(
-                      color: AppColors.wellnessGray,
-                      fontSize: 9.0,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ],
+              AppSpacing.h24,
+              SizedBox(
+                height: 90,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: chartData.map((data) {
+                    final double fraction = data['val'] as double;
+                    final String day = data['day'] as String;
+                    final Color color = data['color'] as Color;
+
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: fraction > 0.0
+                              ? TweenAnimationBuilder<double>(
+                                  duration: const Duration(milliseconds: 600),
+                                  curve: Curves.easeOutCubic,
+                                  tween: Tween<double>(
+                                    begin: 0.0,
+                                    end: fraction,
+                                  ),
+                                  builder: (context, value, child) {
+                                    return FractionallySizedBox(
+                                      heightFactor: value,
+                                      alignment: Alignment.bottomCenter,
+                                      child: Container(
+                                        width: 28,
+                                        decoration: BoxDecoration(
+                                          color: color,
+                                          borderRadius: BorderRadius.circular(
+                                            8.0,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                        AppSpacing.h8,
+                        Text(
+                          day,
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.wellnessGray,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
               ),
             ],
           ),
-          AppSpacing.h24,
-          // Bar Chart Row with Animated Heights
-          SizedBox(
-            height: 90,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: chartData.map((data) {
-                final double fraction = data['val'] as double;
-                final String day = data['day'] as String;
-                final Color color = data['color'] as Color;
-
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: TweenAnimationBuilder<double>(
-                        duration: const Duration(milliseconds: 1000),
-                        curve: Curves.easeOutCubic,
-                        tween: Tween<double>(begin: 0.0, end: fraction),
-                        builder: (context, value, child) {
-                          return FractionallySizedBox(
-                            heightFactor: value,
-                            alignment: Alignment.bottomCenter,
-                            child: Container(
-                              width: 28, // Wider bar matching mockup
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(
-                                  8.0,
-                                ), // Rounded corners
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    AppSpacing.h8,
-                    Text(
-                      day,
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: AppColors.wellnessGray,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

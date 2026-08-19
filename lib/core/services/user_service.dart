@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/notification_model.dart';
 import '../utils/helpers.dart';
 import 'auth_service.dart';
+import 'cycle_service.dart';
 import 'notification_service.dart';
 
 class UserService {
@@ -64,7 +65,16 @@ class UserService {
         },
         'hasCompletedSetup': true,
       }, SetOptions(merge: true));
-      Helpers.log('Saved setup flow data for user: $uid');
+
+      // Save confirmed period record for the selected lastPeriodStart anchor
+      await CycleService.instance.savePeriodRecord(
+        uid: uid,
+        startDate: lastPeriodStart,
+      );
+
+      Helpers.log(
+        'Saved setup flow data & initial period record for user: $uid',
+      );
     } catch (e) {
       Helpers.log('Error saving setup flow data to Firestore: $e');
       rethrow;
@@ -131,7 +141,9 @@ class UserService {
   Stream<DocumentSnapshot<Map<String, dynamic>>> getUserProfileStream(
     String uid,
   ) {
-    return _db.collection('users').doc(uid).snapshots();
+    return _db.collection('users').doc(uid).snapshots().handleError((e) {
+      Helpers.log('User profile stream closed on auth change: $e');
+    });
   }
 
   // --- Notifications Firestore Integration ---
@@ -224,7 +236,11 @@ class UserService {
           (snapshot) => snapshot.docs
               .map((doc) => NotificationModel.fromFirestore(doc))
               .toList(),
-        );
+        )
+        .handleError((e) {
+          Helpers.log('Notifications stream closed on auth change: $e');
+          return <NotificationModel>[];
+        });
   }
 
   // Realtime stream of unread notification count
@@ -235,7 +251,13 @@ class UserService {
         .collection('notifications')
         .where('isRead', isEqualTo: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+        .map((snapshot) => snapshot.docs.length)
+        .handleError((e) {
+          Helpers.log(
+            'Unread notification count stream closed on auth change: $e',
+          );
+          return 0;
+        });
   }
 
   // Mark single notification as read

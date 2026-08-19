@@ -3,7 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/cycle_service.dart';
 import '../../../../core/utils/helpers.dart';
-import '../screens/cycle_screen.dart';
+import '../../data/models/cycle_types.dart';
+
 
 class CycleViewModel extends ChangeNotifier {
   int _selectedDay = DateTime.now().day;
@@ -70,11 +71,10 @@ class CycleViewModel extends ChangeNotifier {
     }
     _selectedDay = 1;
     _journalEntries.clear();
+    notifyListeners();
     final user = AuthService.instance.currentUser;
     if (user != null) {
       _subscribeToUserLogs(user.uid);
-    } else {
-      notifyListeners();
     }
   }
 
@@ -87,11 +87,10 @@ class CycleViewModel extends ChangeNotifier {
     }
     _selectedDay = 1;
     _journalEntries.clear();
+    notifyListeners();
     final user = AuthService.instance.currentUser;
     if (user != null) {
       _subscribeToUserLogs(user.uid);
-    } else {
-      notifyListeners();
     }
   }
 
@@ -101,6 +100,26 @@ class CycleViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void resetToToday() {
+    final now = DateTime.now();
+    final bool changedMonth =
+        _currentYear != now.year || _currentMonth != now.month;
+    _currentYear = now.year;
+    _currentMonth = now.month;
+    _selectedDay = now.day;
+    if (changedMonth) {
+      _journalEntries.clear();
+      notifyListeners();
+      final user = AuthService.instance.currentUser;
+      if (user != null) {
+        _subscribeToUserLogs(user.uid);
+      }
+    } else {
+      notifyListeners();
+    }
+  }
+
 
   void _initAuthAndFirestoreListener() {
     _authSubscription?.cancel();
@@ -122,7 +141,7 @@ class CycleViewModel extends ChangeNotifier {
         .streamCycleLogs(uid)
         .listen((dateKeyMap) {
       final monthPrefix = '$_currentYear-${_currentMonth.toString().padLeft(2, '0')}';
-      bool updated = false;
+      _journalEntries.clear();
 
       dateKeyMap.forEach((dateKey, journal) {
         if (dateKey.startsWith(monthPrefix)) {
@@ -131,15 +150,12 @@ class CycleViewModel extends ChangeNotifier {
             final day = int.tryParse(parts[2]);
             if (day != null) {
               _journalEntries[day] = journal;
-              updated = true;
             }
           }
         }
       });
 
-      if (updated) {
-        notifyListeners();
-      }
+      notifyListeners();
     }, onError: (error) {
       Helpers.log('CycleViewModel Firestore stream error: $error');
     });
@@ -159,18 +175,24 @@ class CycleViewModel extends ChangeNotifier {
     final user = AuthService.instance.currentUser;
     if (user != null) {
       try {
-        final dateKey = CycleService.instance.formatDateKey(_currentYear, _currentMonth, day);
+        final dateKey = CycleService.instance.formatDateKey(
+          _currentYear,
+          _currentMonth,
+          day,
+        );
         await CycleService.instance.saveDailyLog(
           uid: user.uid,
           dateKey: dateKey,
           journal: journal,
           dayNumber: day,
+          isPeriodStart: journal.isPeriodStart,
         );
       } catch (e) {
         Helpers.log('Error in CycleViewModel.saveLog: $e');
       }
     }
   }
+
 
   @override
   void dispose() {

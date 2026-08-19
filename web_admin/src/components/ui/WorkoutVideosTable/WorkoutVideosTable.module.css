@@ -1,0 +1,397 @@
+/* ─────────────────────────────────────────────────────────────
+   WorkoutVideosTable – Ultra Premium & Sleek Table Styles
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Controls & Filter Bar ── */
+.controlsCard {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-shadow: none;
+  margin-bottom: var(--space-5);
+  transition: all var(--transition-base);
+}
+
+.controlsHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.controlsHeading h2 {
+  font-size: var(--font-size-base);
+  font-weight: 750;
+}
+
+.controlsHeading p {
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.filterState {
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.searchBox {
+  flex: 1;
+  min-width: 240px;
+  position: relative;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+  transition: color var(--transition-fast);
+}
+
+.searchInput {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px 0 40px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.searchInput:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--shadow-input);
+}
+
+.searchBox:focus-within .searchIcon {
+  color: var(--color-primary);
+}
+
+.filterSelect {
+  height: 40px;
+  padding: 0 14px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  outline: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.filterSelect option {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.filterSelect:focus,
+.filterSelect:hover {
+  border-color: var(--color-border-focus);
+}
+
+.clearFiltersBtn {
+  height: 40px;
+  background: transparent;
+  border: 1px dashed var(--color-border-dark);
+  color: var(--color-text-secondary);
+  padding: 0 14px;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.clearFiltersBtn:hover {
+  background: var(--color-hover);
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+/* ── Content Table Box ── */
+.tableContainer {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: none;
+  overflow: hidden;
+  transition: all var(--transition-base);
+}
+
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--font-size-xs);
+}
+
+.table th {
+  padding: 14px 20px;
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 16px 20px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  transition: background var(--transition-fast);
+}
+
+.table tbody tr {
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.table tbody tr:hover {
+  background-color: var(--color-nav-hover);
+}
+
+.table tbody tr:hover td {
+  color: var(--color-text-primary);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Thumbnail cell */
+.thumbBox {
+  position: relative;
+  width: 84px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.thumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-fast);
+}
+
+.thumbBox:hover .thumbImg {
+  transform: scale(1.08);
+}
+
+.playOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.thumbBox:hover .playOverlay {
+  opacity: 1;
+}
+
+/* Title cell */
+.titleCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 280px;
+}
+
+.videoTitle {
+  font-weight: 700;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  letter-spacing: -0.2px;
+}
+
+.videoTrainer {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Badges and Pills */
+.categoryPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-glow);
+  white-space: nowrap;
+}
+
+.tierPillFree {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  white-space: nowrap;
+}
+
+.tierPillPaid {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  white-space: nowrap;
+}
+
+.statusLive {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  white-space: nowrap;
+}
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulseDot 1.8s infinite;
+}
+
+@keyframes pulseDot {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Actions Group */
+.actionGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.actionBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-input-bg);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.actionBtn:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary-glow);
+  background: var(--color-primary-bg);
+  box-shadow: 0 0 12px var(--color-primary-glow);
+}
+
+.deleteBtn {
+  color: var(--color-text-tertiary);
+}
+
+.deleteBtn:hover {
+  color: var(--color-error);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--color-error-bg);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+}
+
+/* Empty & Loading states */
+.emptyState {
+  text-align: center;
+  padding: var(--space-12);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.emptyStateContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.emptyIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-input-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+}

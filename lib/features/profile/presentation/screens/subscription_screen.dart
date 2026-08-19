@@ -3,753 +3,295 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/services/subscription_service.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_success_banner.dart';
 import '../../../../core/widgets/gradient_background.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
-
   @override
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
-  int _selectedPlanIndex = 0; // 0 for Annual, 1 for Monthly
+  int _selectedPlanIndex = 0;
   bool _showSuccessBanner = false;
+  bool _isRequestingSubscription = false;
   String _bannerMessage = '';
   Timer? _bannerTimer;
+  StreamSubscription<bool>? _premiumAccessSubscription;
 
-  void _triggerSuccessBanner(String message) {
+  @override
+  void initState() {
+    super.initState();
+    _premiumAccessSubscription = SubscriptionService.instance
+        .streamHasPremiumAccess()
+        .distinct()
+        .listen((hasPremiumAccess) {
+          if (!hasPremiumAccess || !mounted) return;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && Navigator.of(context).canPop()) {
+              Navigator.of(context).pop(true);
+            }
+          });
+        });
+  }
+
+  void _showBanner(String message) {
     setState(() {
       _bannerMessage = message;
       _showSuccessBanner = true;
-      _bannerTimer?.cancel();
-      _bannerTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _showSuccessBanner = false;
-          });
-        }
-      });
     });
+    _bannerTimer?.cancel();
+    _bannerTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showSuccessBanner = false);
+    });
+  }
+
+  Future<void> _requestSubscription() async {
+    if (_isRequestingSubscription) return;
+    setState(() => _isRequestingSubscription = true);
+    try {
+      await SubscriptionService.instance.requestSubscription(
+        planId: _selectedPlanIndex == 0 ? 'annual' : 'monthly',
+      );
+      if (mounted) {
+        _showBanner('Premium is now unlocked on this device.');
+      }
+    } catch (error) {
+      if (mounted) {
+        _showBanner(error is StateError ? error.message : 'Unable to start subscription. Please try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _isRequestingSubscription = false);
+    }
   }
 
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    _premiumAccessSubscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isAnnual = _selectedPlanIndex == 0;
     return GradientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: Stack(
-            children: [
-              SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Top Custom Header (Back button in white rounded square + Subscription title)
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            width: 42.0,
-                            height: 42.0,
-                            decoration: BoxDecoration(
-                              color: AppColors.white,
-                              borderRadius: BorderRadius.circular(12.0),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.wellnessBrown.withValues(alpha: 0.05),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
+          child: Stack(children: [
+            SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                _buildHeader(context),
+                const SizedBox(height: 28),
+                _buildHero(),
+                const SizedBox(height: 24),
+                _sectionLabel('WHAT YOU GET'),
+                const SizedBox(height: 10),
+                _buildBenefits(),
+                const SizedBox(height: 24),
+                _sectionLabel('CHOOSE YOUR PLAN'),
+                const SizedBox(height: 10),
+                _buildPlanCard(index: 0, title: 'Annual Plan', subtitle: r'First 7 days free, then $59.99/yr', price: r'$314.99', period: '/ month (billed annually)', detail: r'$59.99 charged annually', badge: 'BEST VALUE'),
+                const SizedBox(height: 12),
+                _buildPlanCard(index: 1, title: 'Monthly Plan', subtitle: 'Flexible, cancel anytime', price: r'$34.99', period: '/ month', detail: 'Billed monthly'),
+                const SizedBox(height: 20),
+                StreamBuilder<bool>(
+                  stream: SubscriptionService.instance.streamHasPremiumAccess(),
+                  builder: (context, snapshot) {
+                    final hasAccess = snapshot.data == true;
+                    return Column(children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: hasAccess || _isRequestingSubscription ? null : _requestSubscription,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.wellnessBrown,
+                            foregroundColor: AppColors.white,
+                            disabledBackgroundColor: AppColors.wellnessBrown.withValues(alpha: 0.55),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            if (_isRequestingSubscription)
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.white,
                                 ),
-                              ],
+                              )
+                            else
+                              Icon(hasAccess ? Icons.check_circle_rounded : Icons.lock_outline_rounded, size: 19),
+                            const SizedBox(width: 9),
+                            Text(
+                              _isRequestingSubscription
+                                  ? 'Preparing secure checkout…'
+                                  : hasAccess
+                                      ? 'Premium is active'
+                                      : isAnnual
+                                          ? 'Start 7-day free trial'
+                                          : 'Continue with monthly',
+                              style: AppTextStyles.labelLarge.copyWith(color: AppColors.white, fontWeight: FontWeight.w700),
                             ),
-                            child: const Icon(
-                              Icons.chevron_left_rounded,
-                              color: AppColors.wellnessBrown,
-                              size: 26.0,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16.0),
-                        Text(
-                          'Subscription',
-                          style: AppTextStyles.headlineMedium.copyWith(
-                            color: AppColors.wellnessBrown,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 24.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                    AppSpacing.h24,
-
-                    // 1. Premium Access Top Hero Card
-                    _buildPremiumHeaderCard(),
-                    AppSpacing.h24,
-
-                    // 2. EXCLUSIVE FEATURES Section
-                    _buildSectionHeader('EXCLUSIVE FEATURES'),
-                    const SizedBox(height: 8.0),
-                    _buildExclusiveFeaturesSection(),
-                    AppSpacing.h24,
-
-                    // 3. CHOOSE YOUR PLAN Section
-                    _buildSectionHeader('CHOOSE YOUR PLAN'),
-                    const SizedBox(height: 8.0),
-                    _buildAnnualPlanCard(),
-                    const SizedBox(height: 12.0),
-                    _buildMonthlyPlanCard(),
-                    AppSpacing.h24,
-
-                    // 4. Start Free Trial CTA Button
-                    SizedBox(
-                      height: 52.0,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _triggerSuccessBanner('Premium Subscription Activated!');
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2C1E16),
-                          foregroundColor: AppColors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14.0),
-                          ),
-                        ),
-                        child: const Text(
-                          'Start Free Trial',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15.0,
-                            fontFamily: 'Outfit',
-                          ),
+                          ]),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20.0),
-
-                    // 5. Restore Purchase Link
-                    GestureDetector(
-                      onTap: () {
-                        _triggerSuccessBanner('Purchases restored.');
-                      },
-                      child: Text(
-                        'RESTORE PURCHASE',
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.labelSmall.copyWith(
-                          color: AppColors.wellnessBrown.withValues(alpha: 0.7),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11.0,
-                          letterSpacing: 0.8,
-                        ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => _showBanner('Your purchases will be restored after verification.'),
+                        child: Text('Restore purchase', style: AppTextStyles.labelMedium.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w700)),
                       ),
-                    ),
-                    const SizedBox(height: 16.0),
-
-                    // 6. Terms & Disclaimer
-                    Text(
-                      'Cancel anytime. Secure payment. Privacy-first.\nBy continuing, you agree to our Terms of Service.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.wellnessBrown.withValues(alpha: 0.6),
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w500,
-                        height: 1.45,
-                        fontFamily: 'Outfit',
-                      ),
-                    ),
-                    const SizedBox(height: 24.0),
-                  ],
+                    ]);
+                  },
                 ),
-              ),
-
-              // Success Notification Banner
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeOutBack,
-                top: _showSuccessBanner ? 16.0 : -100.0,
-                left: 16.0,
-                right: 16.0,
-                child: Center(
-                  child: AppSuccessBanner(message: _bannerMessage),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4.0, bottom: 4.0),
-      child: Text(
-        title,
-        style: AppTextStyles.labelSmall.copyWith(
-          color: AppColors.wellnessBrown.withValues(alpha: 0.6),
-          fontWeight: FontWeight.w600,
-          fontSize: 11.5,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPremiumHeaderCard() {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFFFF5F7), // Gentle pink left
-            Color(0xFFFFD9E4), // Warm pink right
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20.0),
-        border: Border.all(
-          color: const Color(0xFFF5B5CD),
-          width: 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.wellnessBrown.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFAF4ED),
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Text(
-                    'PREMIUM ACCESS',
-                    style: TextStyle(
-                      color: AppColors.wellnessBrown,
-                      fontSize: 10.0,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Outfit',
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10.0),
                 Text(
-                  'Syd Flows Studio Access',
-                  style: AppTextStyles.titleMedium.copyWith(
-                    color: AppColors.wellnessBrown,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 19.0,
-                  ),
+                  'Cancel anytime. Payment is processed securely. By continuing, you agree to our Terms of Service.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.58), height: 1.45),
                 ),
-                const SizedBox(height: 4.0),
-                Text(
-                  'Unlock a more Suggested\nfitness experience.',
-                  style: TextStyle(
-                    color: AppColors.wellnessBrown.withValues(alpha: 0.75),
-                    fontSize: 13.0,
-                    height: 1.3,
-                    fontFamily: 'Outfit',
-                  ),
-                ),
-              ],
+              ]),
             ),
-          ),
-          const SizedBox(width: 12.0),
-          SvgPicture.asset(
-            AppAssets.premiumBadge,
-            width: 60,
-            height: 60,
-          ),
-        ],
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic,
+              top: _showSuccessBanner ? 14 : -100, left: 16, right: 16,
+              child: Center(child: AppSuccessBanner(message: _bannerMessage)),
+            ),
+          ]),
+        ),
       ),
     );
   }
 
-  Widget _buildExclusiveFeaturesSection() {
-    return Column(
-      children: [
-        // 1. Full width: Advanced Cycle Insights
+  Widget _buildHeader(BuildContext context) => Row(children: [
+    Material(
+      color: AppColors.white.withValues(alpha: 0.82), borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () => Navigator.pop(context), borderRadius: BorderRadius.circular(14),
+        child: const SizedBox(width: 44, height: 44, child: Icon(Icons.arrow_back_rounded, color: AppColors.wellnessBrown)),
+      ),
+    ),
+    const SizedBox(width: 14),
+    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('SYD FLOWS PREMIUM', style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessPinkText, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
+      Text('Upgrade your flow', style: AppTextStyles.titleLarge.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w700)),
+    ]),
+  ]);
+
+  Widget _buildHero() => Container(
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(colors: [Color(0xFFFFF8FA), Color(0xFFFBD4E1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+      borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.wellnessPinkBorder),
+      boxShadow: [BoxShadow(color: AppColors.wellnessBrown.withValues(alpha: 0.07), blurRadius: 22, offset: const Offset(0, 10))],
+    ),
+    child: Row(children: [
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF7F9),
-            borderRadius: BorderRadius.circular(16.0),
-            border: Border.all(
-              color: const Color(0xFFF5B5CD),
-              width: 1.0,
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.72), borderRadius: BorderRadius.circular(99)),
+          child: Text('PERSONALISED WELLNESS', style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessPinkText, fontWeight: FontWeight.w800, fontSize: 9.5, letterSpacing: 0.8)),
+        ),
+        const SizedBox(height: 13),
+        Text('Feel supported\nin every phase.', style: AppTextStyles.headlineSmall.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w800, height: 1.12)),
+        const SizedBox(height: 8),
+        Text('Unlock the complete workout library and deeper cycle guidance.', style: AppTextStyles.bodySmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.72), height: 1.45)),
+      ])),
+      const SizedBox(width: 12),
+      SvgPicture.asset(AppAssets.premiumBadge, width: 72, height: 72),
+    ]),
+  );
+
+  Widget _sectionLabel(String label) => Text(label, style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.58), fontWeight: FontWeight.w800, letterSpacing: 1));
+
+  Widget _buildBenefits() => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.84), borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.wellnessBrown.withValues(alpha: 0.08))),
+    child: const Column(children: [
+      _BenefitRow(icon: Icons.lock_open_rounded, title: 'Every premium workout', detail: 'Move with the full studio library, whenever you need it.'),
+      Divider(height: 24),
+      _BenefitRow(icon: Icons.insights_rounded, title: 'Deeper cycle insights', detail: 'Understand patterns and plan your movement with confidence.'),
+      Divider(height: 24),
+      _BenefitRow(icon: Icons.favorite_outline_rounded, title: 'Made for your rhythm', detail: 'Supportive content for each stage of your cycle.'),
+    ]),
+  );
+
+  Widget _buildPlanCard({required int index, required String title, required String subtitle, required String price, required String period, required String detail, String? badge}) {
+    final isSelected = _selectedPlanIndex == index;
+    return Semantics(
+      button: true, selected: isSelected, label: '$title plan, $price $period',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _selectedPlanIndex = index), borderRadius: BorderRadius.circular(18),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180), padding: const EdgeInsets.all(17),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFFFFF7FA) : AppColors.white.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: isSelected ? AppColors.wellnessPinkText : AppColors.wellnessBrown.withValues(alpha: 0.12), width: isSelected ? 1.5 : 1),
             ),
-          ),
-          child: Row(
-            children: [
+            child: Row(children: [
               Container(
-                width: 44.0,
-                height: 44.0,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFD1DF),
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                child: const Icon(
-                  Icons.bar_chart_rounded,
-                  color: Color(0xFFC8455B),
-                  size: 22.0,
-                ),
+                width: 22, height: 22,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: isSelected ? AppColors.wellnessPinkText : Colors.transparent, border: Border.all(color: isSelected ? AppColors.wellnessPinkText : AppColors.wellnessBrown.withValues(alpha: 0.28), width: 1.5)),
+                child: isSelected ? const Icon(Icons.check_rounded, color: Colors.white, size: 15) : null,
               ),
-              const SizedBox(width: 14.0),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
-                    Text(
-                      'Advanced Cycle Insights',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.wellnessBrown,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15.0,
+                    Text(title, style: AppTextStyles.titleMedium.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w800)),
+                    if (badge != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(color: AppColors.wellnessPinkBg, borderRadius: BorderRadius.circular(99)),
+                        child: Text(badge, style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessPinkText, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                       ),
-                    ),
-                    const SizedBox(height: 2.0),
-                    Text(
-                      'Deep data correlation with your\nworkouts.',
-                      style: TextStyle(
-                        color: AppColors.wellnessBrown.withValues(alpha: 0.7),
-                        fontSize: 12.0,
-                        height: 1.25,
-                        fontFamily: 'Outfit',
-                      ),
-                    ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 3),
+                Text(subtitle, style: AppTextStyles.bodySmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.63))),
+                const SizedBox(height: 10),
+                Text(detail, style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.53), fontWeight: FontWeight.w500)),
+              ])),
+              const SizedBox(width: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(price, style: AppTextStyles.titleLarge.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w800)),
+                Text(period, style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.58))),
+              ]),
+            ]),
           ),
-        ),
-        const SizedBox(height: 10.0),
-
-        // Row 1: Unlimited Workouts + More Holistic Instructors
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                height: 130.0,
-                padding: const EdgeInsets.all(14.0),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7F9),
-                  borderRadius: BorderRadius.circular(16.0),
-                  border: Border.all(
-                    color: const Color(0xFFF5B5CD),
-                    width: 1.0,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 38.0,
-                      height: 38.0,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFDE4D8),
-                        borderRadius: BorderRadius.circular(10.0),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: SvgPicture.asset(
-                          AppAssets.navWorkouts,
-                          colorFilter: const ColorFilter.mode(
-                            Color(0xFFB5613C),
-                            BlendMode.srcIn,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'Unlimited\nWorkouts',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.wellnessBrown,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13.5,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4.0),
-                    Text(
-                      'Full library access.',
-                      style: TextStyle(
-                        color: AppColors.wellnessBrown.withValues(alpha: 0.65),
-                        fontSize: 11.0,
-                        fontFamily: 'Outfit',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 10.0),
-            Expanded(
-              child: Container(
-                height: 130.0,
-                padding: const EdgeInsets.all(14.0),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7F9),
-                  borderRadius: BorderRadius.circular(16.0),
-                  border: Border.all(
-                    color: const Color(0xFFF5B5CD),
-                    width: 1.0,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 38.0,
-                      height: 38.0,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFD1DF),
-                        borderRadius: BorderRadius.circular(10.0),
-                      ),
-                      child: const Icon(
-                        Icons.auto_awesome_rounded,
-                        color: Color(0xFFC8455B),
-                        size: 20.0,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'More Holistic\nInstructors',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.wellnessBrown,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13.5,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4.0),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFE3E6),
-                        borderRadius: BorderRadius.circular(4.0),
-                      ),
-                      child: const Text(
-                        'SOON',
-                        style: TextStyle(
-                          color: AppColors.wellnessBrown,
-                          fontSize: 9.0,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Outfit',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10.0),
-
-        // Row 2: Progress Reports + Wellness Content
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(14.0),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7F9),
-                  borderRadius: BorderRadius.circular(16.0),
-                  border: Border.all(
-                    color: const Color(0xFFF5B5CD),
-                    width: 1.0,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38.0,
-                      height: 38.0,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFD1DF),
-                        borderRadius: BorderRadius.circular(10.0),
-                      ),
-                      child: const Icon(
-                        Icons.trending_up_rounded,
-                        color: Color(0xFFC8455B),
-                        size: 20.0,
-                      ),
-                    ),
-                    const SizedBox(width: 10.0),
-                    Expanded(
-                      child: Text(
-                        'Progress\nReports',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.wellnessBrown,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13.5,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 10.0),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(14.0),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7F9),
-                  borderRadius: BorderRadius.circular(16.0),
-                  border: Border.all(
-                    color: const Color(0xFFF5B5CD),
-                    width: 1.0,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38.0,
-                      height: 38.0,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAE3DE),
-                        borderRadius: BorderRadius.circular(10.0),
-                      ),
-                      child: const Icon(
-                        Icons.menu_book_rounded,
-                        color: Color(0xFF7A675C),
-                        size: 20.0,
-                      ),
-                    ),
-                    const SizedBox(width: 10.0),
-                    Expanded(
-                      child: Text(
-                        'Wellness\nContent',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.wellnessBrown,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13.5,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAnnualPlanCard() {
-    final isSelected = _selectedPlanIndex == 0;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedPlanIndex = 0;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(18.0),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(20.0),
-          border: Border.all(
-            color: isSelected ? AppColors.wellnessBrown : Colors.transparent,
-            width: isSelected ? 1.5 : 0.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.wellnessBrown.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Annual Plan',
-                  style: AppTextStyles.titleMedium.copyWith(
-                    color: AppColors.wellnessBrown,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 19.0,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9D0DD),
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: const Text(
-                    'BEST VALUE',
-                    style: TextStyle(
-                      color: Color(0xFF8C2D43),
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Outfit',
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4.0),
-            Text(
-              'First 7 days free, then \$59.99/yr',
-              style: TextStyle(
-                color: AppColors.wellnessBrown.withValues(alpha: 0.7),
-                fontSize: 13.0,
-                fontFamily: 'Outfit',
-              ),
-            ),
-            const SizedBox(height: 14.0),
-            Divider(
-              color: AppColors.wellnessBrown.withValues(alpha: 0.08),
-              height: 1.0,
-            ),
-            const SizedBox(height: 14.0),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  '\$314.99',
-                  style: AppTextStyles.headlineMedium.copyWith(
-                    color: AppColors.wellnessBrown,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 26.0,
-                  ),
-                ),
-                const SizedBox(width: 6.0),
-                Text(
-                  '/ month (billed annually)',
-                  style: TextStyle(
-                    color: AppColors.wellnessBrown.withValues(alpha: 0.7),
-                    fontSize: 13.0,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'Outfit',
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildMonthlyPlanCard() {
-    final isSelected = _selectedPlanIndex == 1;
+class _BenefitRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String detail;
+  const _BenefitRow({required this.icon, required this.title, required this.detail});
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedPlanIndex = 1;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(18.0),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFAECEF),
-          borderRadius: BorderRadius.circular(20.0),
-          border: Border.all(
-            color: isSelected ? AppColors.wellnessBrown : Colors.transparent,
-            width: isSelected ? 1.5 : 0.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.wellnessBrown.withValues(alpha: 0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Monthly Plan',
-              style: AppTextStyles.titleMedium.copyWith(
-                color: AppColors.wellnessBrown,
-                fontWeight: FontWeight.bold,
-                fontSize: 19.0,
-              ),
-            ),
-            const SizedBox(height: 4.0),
-            Text(
-              'Flexible, cancel anytime',
-              style: TextStyle(
-                color: AppColors.wellnessBrown.withValues(alpha: 0.7),
-                fontSize: 13.0,
-                fontFamily: 'Outfit',
-              ),
-            ),
-            const SizedBox(height: 14.0),
-            Divider(
-              color: AppColors.wellnessBrown.withValues(alpha: 0.08),
-              height: 1.0,
-            ),
-            const SizedBox(height: 14.0),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  '\$34.99',
-                  style: AppTextStyles.headlineMedium.copyWith(
-                    color: AppColors.wellnessBrown,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 26.0,
-                  ),
-                ),
-                const SizedBox(width: 6.0),
-                Text(
-                  '/ month',
-                  style: TextStyle(
-                    color: AppColors.wellnessBrown.withValues(alpha: 0.7),
-                    fontSize: 13.0,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'Outfit',
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  @override
+  Widget build(BuildContext context) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Container(width: 38, height: 38, decoration: BoxDecoration(color: AppColors.wellnessPinkBg, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: AppColors.wellnessPinkText, size: 20)),
+    const SizedBox(width: 12),
+    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: AppTextStyles.labelLarge.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 3),
+      Text(detail, style: AppTextStyles.bodySmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.66), height: 1.35)),
+    ])),
+  ]);
 }

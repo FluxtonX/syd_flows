@@ -1,46 +1,103 @@
 import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/workout_service.dart';
+import '../../../workout/data/models/workout_model.dart';
+import '../../../workout/presentation/screens/workout_detail_screen.dart';
 
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final user = AuthService.instance.currentUser;
+    final uid = user?.uid ?? '';
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 100.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 1. Header (Title only, no Level code)
-            _buildHeader(),
-            AppSpacing.h24,
+      body: StreamBuilder<List<CompletedWorkoutRecord>>(
+        stream: uid.isNotEmpty
+            ? WorkoutService.instance.streamAllCompletedWorkouts(uid)
+            : Stream.value([]),
+        builder: (context, workoutSnapshot) {
+          final workouts = workoutSnapshot.data ?? [];
 
-            // 2. Row of 3 Stats Cards
-            _buildStatsRow(),
-            AppSpacing.h24,
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: uid.isNotEmpty
+                ? FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .collection('cycle_logs')
+                      .snapshots()
+                : const Stream.empty(),
+            builder: (context, cycleSnapshot) {
+              final cycleDocs = cycleSnapshot.data?.docs ?? [];
 
-            // 3. Activity Card (Weekly Bar Chart ONLY)
-            _buildActivityCard(),
-            AppSpacing.h24,
+              // Collect all unique active date keys (YYYY-MM-DD)
+              final Set<String> activeDateKeys = {};
 
-            // 4. Cycle Insights Card (Exact Figma Mockup Colors & Rings)
-            _buildCycleInsightsCard(),
-            AppSpacing.h24,
+              for (final w in workouts) {
+                final dt = w.completedAt;
+                final key =
+                    '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+                activeDateKeys.add(key);
+              }
 
-            // 5. Favorites Section
-            _buildFavoritesSection(),
-            AppSpacing.h24,
+              for (final doc in cycleDocs) {
+                activeDateKeys.add(doc.id);
+              }
 
-            // 6. Achievements Section
-            _buildAchievementsSection(),
-          ],
-        ),
+              final streakCount = WorkoutService.calculateStreakDays(
+                activeDateKeys,
+              );
+              final totalMinutes = workouts.fold<int>(
+                0,
+                (acc, w) => acc + w.duration,
+              );
+              final totalWorkouts = workouts.length;
+
+              return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 100.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 1. Header
+                    _buildHeader(),
+                    AppSpacing.h24,
+
+                    // 2. Row of 3 Stats Cards
+                    _buildStatsRow(
+                      streakCount: streakCount,
+                      totalMinutes: totalMinutes,
+                      totalWorkouts: totalWorkouts,
+                    ),
+                    AppSpacing.h24,
+
+                    // 3. Activity Card (Weekly Bar Chart)
+                    _buildActivityCard(workouts),
+                    AppSpacing.h24,
+
+                    // 4. Cycle Insights Card
+                    _buildCycleInsightsCard(),
+                    AppSpacing.h24,
+
+                    // 5. Favorites Section
+                    _buildFavoritesSection(uid),
+                    AppSpacing.h24,
+
+                    // 6. Achievements Section
+                    _buildAchievementsSection(),
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -56,7 +113,11 @@ class ProgressScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsRow() {
+  Widget _buildStatsRow({
+    required int streakCount,
+    required int totalMinutes,
+    required int totalWorkouts,
+  }) {
     return Row(
       children: [
         // Day Streak Card
@@ -77,7 +138,7 @@ class ProgressScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12.0),
                 Text(
-                  '12',
+                  '$streakCount',
                   style: AppTextStyles.headlineMedium.copyWith(
                     color: AppColors.wellnessBrown,
                     fontWeight: FontWeight.bold,
@@ -118,7 +179,7 @@ class ProgressScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12.0),
                 Text(
-                  '248',
+                  '$totalMinutes',
                   style: AppTextStyles.headlineMedium.copyWith(
                     color: AppColors.wellnessBrown,
                     fontWeight: FontWeight.bold,
@@ -166,7 +227,7 @@ class ProgressScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12.0),
                 Text(
-                  '26',
+                  '$totalWorkouts',
                   style: AppTextStyles.headlineMedium.copyWith(
                     color: AppColors.wellnessBrown,
                     fontWeight: FontWeight.bold,
@@ -191,7 +252,7 @@ class ProgressScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActivityCard() {
+  Widget _buildActivityCard(List<CompletedWorkoutRecord> allWorkouts) {
     return Container(
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
@@ -247,46 +308,85 @@ class ProgressScreen extends StatelessWidget {
           AppSpacing.h24,
 
           // Weekly Bar Chart
-          _buildWeeklyBarChart(),
+          _buildWeeklyBarChart(allWorkouts),
         ],
       ),
     );
   }
 
-  Widget _buildWeeklyBarChart() {
-    final weeklyData = [
-      _BarData('Mon', 18.0),
-      _BarData('Tue', 28.0),
-      _BarData('Wed', 22.0),
-      _BarData('Thu', 24.0),
-      _BarData('Fri', 20.0),
-      _BarData('Sat', 50.0),
-      _BarData('Sun', 12.0),
-    ];
+  Widget _buildWeeklyBarChart(List<CompletedWorkoutRecord> allWorkouts) {
+    final now = DateTime.now();
+    final mondayDate = DateTime(
+      now.year,
+      now.month,
+      now.day - (now.weekday - 1),
+    );
+    final mondayStart = DateTime(
+      mondayDate.year,
+      mondayDate.month,
+      mondayDate.day,
+      0,
+      0,
+      0,
+    );
+    final sundayEnd = mondayStart.add(
+      const Duration(days: 7, microseconds: -1),
+    );
 
-    final maxVal = weeklyData.map((d) => d.value).reduce(math.max);
+    // Filter current week workouts
+    final currentWeekWorkouts = allWorkouts.where((w) {
+      return w.completedAt.isAfter(
+            mondayStart.subtract(const Duration(seconds: 1)),
+          ) &&
+          w.completedAt.isBefore(sundayEnd);
+    }).toList();
+
+    final List<int> dayMinutes = List.filled(7, 0);
+    for (final w in currentWeekWorkouts) {
+      final idx = w.completedAt.weekday - 1;
+      if (idx >= 0 && idx < 7) {
+        dayMinutes[idx] += w.duration;
+      }
+    }
+
+    int maxVal = 45;
+    for (final m in dayMinutes) {
+      if (m > maxVal) maxVal = m;
+    }
+
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     return SizedBox(
       height: 125.0,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: weeklyData.map((data) {
-          final barHeight = maxVal > 0 ? (data.value / maxVal) * 90.0 : 0.0;
+        children: List.generate(7, (index) {
+          final mins = dayMinutes[index];
+          // Empty state (0 mins): barHeight is 0.0 => NO bar line!
+          final double barHeight = mins > 0 ? (mins / maxVal) * 90.0 : 0.0;
+
           return Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Container(
-                width: 24.0,
-                height: barHeight,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF08AAE),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
+              Expanded(
+                child: barHeight > 0.0
+                    ? Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          width: 24.0,
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF08AAE),
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(), // Empty state: NO bar line!
               ),
               const SizedBox(height: 8.0),
               Text(
-                data.day,
+                days[index],
                 style: AppTextStyles.labelSmall.copyWith(
                   color: AppColors.wellnessBrown,
                   fontWeight: FontWeight.bold,
@@ -295,7 +395,7 @@ class ProgressScreen extends StatelessWidget {
               ),
             ],
           );
-        }).toList(),
+        }),
       ),
     );
   }
@@ -423,115 +523,169 @@ class ProgressScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFavoritesSection() {
-    final favorites = [
-      _FavoriteWorkout(
-        title: 'Sunrise Flow Yoga',
-        category: 'YOGA',
-        imagePath: 'assets/images/workout/sunrise_flow.png',
-        difficulty: 'Gentle',
-        duration: 22,
-      ),
-      _FavoriteWorkout(
-        title: 'Pilates Core Reset',
-        category: 'PILATES',
-        imagePath: 'assets/images/workout/pilates_core.png',
-        difficulty: 'Moderate',
-        duration: 28,
-      ),
-    ];
+  Widget _buildFavoritesSection(String uid) {
+    return StreamBuilder<List<Workout>>(
+      stream: uid.isNotEmpty
+          ? WorkoutService.instance.streamFavorites(uid)
+          : Stream.value([]),
+      builder: (context, snapshot) {
+        final favorites = snapshot.data ?? [];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Favorites',
-          style: AppTextStyles.titleMedium.copyWith(
-            color: AppColors.wellnessBrown,
-            fontWeight: FontWeight.bold,
-            fontSize: 18.0,
-          ),
-        ),
-        const SizedBox(height: 12.0),
-        ...favorites.map(
-          (fav) => Container(
-            height: 90.0,
-            margin: const EdgeInsets.only(bottom: 12.0),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16.0),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.black.withValues(alpha: 0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Favorites',
+              style: AppTextStyles.titleMedium.copyWith(
+                color: AppColors.wellnessBrown,
+                fontWeight: FontWeight.bold,
+                fontSize: 18.0,
+              ),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16.0),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Image.asset(fav.imagePath, fit: BoxFit.cover),
+            const SizedBox(height: 12.0),
+            if (favorites.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(20.0),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(16.0),
+                  border: Border.all(
+                    color: AppColors.wellnessBeige.withValues(alpha: 0.12),
                   ),
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.black.withValues(alpha: 0.2),
-                            AppColors.black.withValues(alpha: 0.75),
-                          ],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
+                ),
+                child: Text(
+                  'No favorite workouts saved yet. Tap the ❤️ icon on any workout to save it here!',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.wellnessGray,
+                    fontSize: 13.0,
+                  ),
+                ),
+              )
+            else
+              ...favorites.map((fav) {
+                final cover = fav.imagePath.isNotEmpty
+                    ? fav.imagePath
+                    : (fav.videoId != null && fav.videoId!.isNotEmpty
+                        ? 'https://img.youtube.com/vi/${fav.videoId}/hqdefault.jpg'
+                        : 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=600&auto=format&fit=crop');
+
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => WorkoutDetailScreen(workout: fav),
                       ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 16.0,
-                    right: 16.0,
-                    top: 16.0,
-                    bottom: 16.0,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          fav.category,
-                          style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.white.withValues(alpha: 0.8),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 9.5,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                        const SizedBox(height: 2.0),
-                        Text(
-                          fav.title,
-                          style: AppTextStyles.titleMedium.copyWith(
-                            color: AppColors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16.0,
-                          ),
-                        ),
-                        const SizedBox(height: 2.0),
-                        Text(
-                          '🕒 ${fav.duration}m  ·  ${fav.difficulty}',
-                          style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.white.withValues(alpha: 0.85),
-                            fontSize: 11.0,
-                          ),
+                    );
+                  },
+                  child: Container(
+                    height: 90.0,
+                    margin: const EdgeInsets.only(bottom: 12.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.black.withValues(alpha: 0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16.0),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: cover.startsWith('http')
+                                ? Image.network(
+                                    cover,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            Container(
+                                              color:
+                                                  AppColors.wellnessPeachAccent,
+                                            ),
+                                  )
+                                : Image.asset(
+                                    cover,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            Container(
+                                              color:
+                                                  AppColors.wellnessPeachAccent,
+                                            ),
+                                  ),
+                          ),
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppColors.black.withValues(alpha: 0.2),
+                                    AppColors.black.withValues(alpha: 0.75),
+                                  ],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 16.0,
+                            right: 16.0,
+                            top: 16.0,
+                            bottom: 16.0,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  fav.category.toUpperCase(),
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.white.withValues(
+                                      alpha: 0.8,
+                                    ),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 9.5,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                const SizedBox(height: 2.0),
+                                Text(
+                                  fav.title,
+                                  style: AppTextStyles.titleMedium.copyWith(
+                                    color: AppColors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16.0,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2.0),
+                                Text(
+                                  '🕒 ${fav.duration}m  ·  ${fav.difficulty}',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.white.withValues(
+                                      alpha: 0.85,
+                                    ),
+                                    fontSize: 11.0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
+                );
+              }),
+          ],
+        );
+      },
     );
   }
 
@@ -757,27 +911,4 @@ class _RingConfig {
     required this.sweepAngle,
     required this.strokeWidth,
   });
-}
-
-class _FavoriteWorkout {
-  final String title;
-  final String category;
-  final String imagePath;
-  final String difficulty;
-  final int duration;
-
-  _FavoriteWorkout({
-    required this.title,
-    required this.category,
-    required this.imagePath,
-    required this.difficulty,
-    required this.duration,
-  });
-}
-
-class _BarData {
-  final String day;
-  final double value;
-
-  _BarData(this.day, this.value);
 }

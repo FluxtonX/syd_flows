@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/local_storage_service.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/gradient_background.dart';
 import '../../../setup_flow/presentation/widgets/fitness_level_step.dart';
@@ -23,6 +27,186 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void initState() {
     super.initState();
     _viewModel = EditProfileViewModel();
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid != null) {
+      LocalStorageService.instance.getLocalProfileImagePath(uid);
+    }
+  }
+
+  void _showProfileImagePickerBottomSheet(String uid) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28.0)),
+      ),
+      builder: (modalContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 20.0,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36.0,
+                  height: 4.0,
+                  decoration: BoxDecoration(
+                    color: AppColors.wellnessBrown.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(2.0),
+                  ),
+                ),
+                const SizedBox(height: 20.0),
+                Text(
+                  'Profile Photo',
+                  style: AppTextStyles.titleLarge.copyWith(
+                    color: AppColors.wellnessBrown,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6.0),
+                Text(
+                  'Upload or change your profile image',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.wellnessGray,
+                  ),
+                ),
+                const SizedBox(height: 24.0),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16.0),
+                  ),
+                  tileColor: const Color(0xFFFAF5F0),
+                  leading: Container(
+                    width: 44.0,
+                    height: 44.0,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7ECE1),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: const Icon(
+                      Icons.photo_library_rounded,
+                      color: AppColors.wellnessBrown,
+                    ),
+                  ),
+                  title: Text(
+                    'Choose from Gallery',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.wellnessBrown,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(modalContext);
+                    await _pickAndSaveImage(ImageSource.gallery, uid);
+                  },
+                ),
+                const SizedBox(height: 12.0),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16.0),
+                  ),
+                  tileColor: const Color(0xFFFFF0F5),
+                  leading: Container(
+                    width: 44.0,
+                    height: 44.0,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD1DF),
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      color: AppColors.wellnessPinkText,
+                    ),
+                  ),
+                  title: Text(
+                    'Take Photo with Camera',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.wellnessBrown,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(modalContext);
+                    await _pickAndSaveImage(ImageSource.camera, uid);
+                  },
+                ),
+                if (LocalStorageService.instance.profileImageNotifier.value !=
+                    null) ...[
+                  const SizedBox(height: 12.0),
+                  ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16.0),
+                    ),
+                    tileColor: const Color(0xFFFDE8E8),
+                    leading: Container(
+                      width: 44.0,
+                      height: 44.0,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFDE8E8),
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Color(0xFFE53E3E),
+                      ),
+                    ),
+                    title: Text(
+                      'Remove Profile Photo',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: const Color(0xFFE53E3E),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(modalContext);
+                      await LocalStorageService.instance
+                          .removeLocalProfileImage(uid);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Profile photo removed'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickAndSaveImage(ImageSource source, String uid) async {
+    try {
+      final savedPath = await LocalStorageService.instance
+          .pickAndSaveProfileImage(uid, source);
+      if (savedPath != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile photo updated!'),
+            backgroundColor: AppColors.wellnessBrown,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not set profile image: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -68,7 +252,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               borderRadius: BorderRadius.circular(12.0),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.wellnessBrown.withValues(alpha: 0.05),
+                                  color: AppColors.wellnessBrown.withValues(
+                                    alpha: 0.05,
+                                  ),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -142,6 +328,135 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             AppSpacing.h16,
                           ],
 
+                          // Profile Photo Header
+                          Center(
+                            child: Column(
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    final uid =
+                                        AuthService.instance.currentUser?.uid;
+                                    if (uid != null) {
+                                      _showProfileImagePickerBottomSheet(uid);
+                                    }
+                                  },
+                                  child: Stack(
+                                    children: [
+                                      ValueListenableBuilder<String?>(
+                                        valueListenable: LocalStorageService
+                                            .instance
+                                            .profileImageNotifier,
+                                        builder: (context, localImagePath, _) {
+                                          final hasLocalFile =
+                                              localImagePath != null &&
+                                              localImagePath.isNotEmpty &&
+                                              File(localImagePath).existsSync();
+
+                                          ImageProvider? imageProvider;
+                                          if (hasLocalFile) {
+                                            imageProvider = FileImage(
+                                              File(localImagePath),
+                                            );
+                                          }
+
+                                          final initial =
+                                              _viewModel
+                                                  .nameController
+                                                  .text
+                                                  .isNotEmpty
+                                              ? _viewModel
+                                                    .nameController
+                                                    .text[0]
+                                                    .toUpperCase()
+                                              : 'U';
+
+                                          return Container(
+                                            width: 80.0,
+                                            height: 80.0,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: AppColors.white,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: AppColors.wellnessBrown
+                                                      .withValues(alpha: 0.12),
+                                                  blurRadius: 12,
+                                                  offset: const Offset(0, 4),
+                                                ),
+                                              ],
+                                            ),
+                                            child: ClipOval(
+                                              child: imageProvider != null
+                                                  ? Image(
+                                                      image: imageProvider,
+                                                      width: 80.0,
+                                                      height: 80.0,
+                                                      fit: BoxFit.cover,
+                                                    )
+                                                  : Center(
+                                                      child: Text(
+                                                        initial,
+                                                        style: const TextStyle(
+                                                          color: AppColors
+                                                              .wellnessPinkText,
+                                                          fontSize: 32.0,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontFamily: 'Outfit',
+                                                        ),
+                                                      ),
+                                                    ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      Positioned(
+                                        right: 0,
+                                        bottom: 0,
+                                        child: Container(
+                                          width: 26.0,
+                                          height: 26.0,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.wellnessBrown,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: AppColors.white,
+                                              width: 2.0,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: AppColors.wellnessBrown
+                                                    .withValues(alpha: 0.2),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Center(
+                                            child: Icon(
+                                              Icons.camera_alt_rounded,
+                                              color: AppColors.white,
+                                              size: 13.0,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 8.0),
+                                Text(
+                                  'Tap to change photo',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.wellnessGray,
+                                    fontSize: 11.0,
+                                  ),
+                                ),
+                                AppSpacing.h24,
+                              ],
+                            ),
+                          ),
+
                           // 1. Personal Info Section
                           _buildSectionHeader('PERSONAL INFO'),
                           Container(
@@ -151,7 +466,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               borderRadius: AppRadius.r24,
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.wellnessBrown.withValues(alpha: 0.03),
+                                  color: AppColors.wellnessBrown.withValues(
+                                    alpha: 0.03,
+                                  ),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -177,7 +494,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   decoration: InputDecoration(
                                     hintText: 'Enter your name',
                                     filled: true,
-                                    fillColor: AppColors.wellnessBeige.withValues(alpha: 0.3),
+                                    fillColor: AppColors.wellnessBeige
+                                        .withValues(alpha: 0.3),
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 16.0,
                                       vertical: 14.0,
@@ -209,7 +527,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               borderRadius: AppRadius.r24,
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.wellnessBrown.withValues(alpha: 0.03),
+                                  color: AppColors.wellnessBrown.withValues(
+                                    alpha: 0.03,
+                                  ),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -251,7 +571,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 ),
                                 AppSpacing.h24,
                                 Divider(
-                                  color: AppColors.wellnessBrown.withValues(alpha: 0.08),
+                                  color: AppColors.wellnessBrown.withValues(
+                                    alpha: 0.08,
+                                  ),
                                 ),
                                 AppSpacing.h16,
                                 Text(
@@ -320,7 +642,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         borderRadius: AppRadius.r16,
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.wellnessBrown.withValues(alpha: 0.25),
+                            color: AppColors.wellnessBrown.withValues(
+                              alpha: 0.25,
+                            ),
                             blurRadius: 20.0,
                             spreadRadius: 1.0,
                             offset: const Offset(0, 8),
@@ -335,7 +659,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 if (success && mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Profile & preferences updated!'),
+                                      content: Text(
+                                        'Profile & preferences updated!',
+                                      ),
                                       backgroundColor: AppColors.wellnessBrown,
                                       duration: Duration(seconds: 2),
                                     ),

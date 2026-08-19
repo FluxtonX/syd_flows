@@ -221,7 +221,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
         // Footer: New to Syd Flows? Create account
         _buildFooter(
-          normalText: 'New to Syd Flows?',
+          normalText: 'New to SYD FLOWS?',
           actionText: 'Create account',
           onTap: () => _viewModel.setAuthState(AuthState.signUp),
         ),

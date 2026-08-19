@@ -80,6 +80,21 @@ class Workout {
 
     final cat = (map['category'] ?? 'Yoga').toString();
 
+    String thumb = (map['thumbnailUrl'] as String?)?.isNotEmpty == true
+        ? map['thumbnailUrl'] as String
+        : ((map['imagePath'] as String?)?.isNotEmpty == true
+            ? map['imagePath'] as String
+            : '');
+
+    if (thumb.isEmpty && vId != null && vId.isNotEmpty) {
+      thumb = 'https://img.youtube.com/vi/$vId/hqdefault.jpg';
+    }
+
+    // `isPaid` is canonical. `premium` is retained for older admin uploads.
+    // Treat either true value as premium so an inconsistent legacy document
+    // can never accidentally unlock a paid video.
+    final isPaid = map['isPaid'] == true || map['premium'] == true;
+
     return Workout(
       id: docId,
       title: map['title'] ?? '',
@@ -90,9 +105,9 @@ class Workout {
       type: cat,
       equipment: map['propsUsed'] ?? map['equipment'] ?? 'Mat',
       propsUsed: map['propsUsed'] ?? map['equipment'] ?? 'Mat',
-      isPaid: map['isPaid'] ?? (map['premium'] ?? false),
-      isFree: map['isFree'] ?? (!(map['premium'] ?? false)),
-      imagePath: map['thumbnailUrl'] ?? '',
+      isPaid: isPaid,
+      isFree: !isPaid,
+      imagePath: thumb,
       videoUrl: vUrl,
       videoId: vId,
     );

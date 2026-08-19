@@ -99,7 +99,13 @@ class AuthService {
 
   // Sign Out
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    try {
+      if (await _googleSignIn.isSignedIn()) {
+        await _googleSignIn.signOut();
+      }
+    } catch (e) {
+      Helpers.log('Google sign-out cleanup ignored: $e');
+    }
     await _auth.signOut();
   }
 }

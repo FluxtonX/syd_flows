@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_bottom_navigation.dart';
 import '../../../../core/widgets/gradient_background.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/export_service.dart';
+import '../../../cycle/presentation/widgets/cycle_provider.dart';
 import 'about_screen.dart';
 import 'edit_profile_screen.dart';
 import 'terms_of_service_screen.dart';
@@ -18,7 +22,121 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _pushNotifications = true;
   bool _dailyReminder = true;
+  bool _isExporting = false;
   int _selectedBottomTab = 4; // Profile tab
+
+  Future<void> _exportCycleData() async {
+    final user = AuthService.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please sign in to export your cycle data.'),
+          backgroundColor: AppColors.wellnessBrown,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final cycleNotifier = CycleProvider.ofNullable(context);
+      final result = await ExportService.instance.exportCycleLogsCsv(
+        uid: user.uid,
+        settings: cycleNotifier?.settings,
+      );
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          backgroundColor: AppColors.white,
+          title: Text(
+            'Export Successful 📊',
+            style: AppTextStyles.titleMedium.copyWith(
+              color: AppColors.wellnessBrown,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Successfully exported ${result.recordCount} cycle journal records to CSV.',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.wellnessBrown,
+                ),
+              ),
+              const SizedBox(height: 12.0),
+              Text(
+                'Saved at:\n${result.filePath}',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.wellnessGray,
+                  fontSize: 10.5,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: result.csvContent));
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('CSV content copied to clipboard!'),
+                    backgroundColor: AppColors.wellnessBrown,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: Text(
+                'Copy CSV',
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: AppColors.wellnessBrown,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.wellnessBrown,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+              ),
+              child: const Text(
+                'Done',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Export failed: $e'),
+          backgroundColor: AppColors.wellnessPinkText,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +225,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           );
                         },
                       ),
+                      Divider(
+                        color: AppColors.wellnessBrown.withValues(alpha: 0.06),
+                        height: 1.0,
+                        indent: 16.0,
+                        endIndent: 16.0,
+                      ),
+                      _buildNavigationRow(
+                        title: _isExporting
+                            ? 'Exporting cycle data...'
+                            : 'Export Cycle Data (CSV)',
+                        onTap: _isExporting ? () {} : _exportCycleData,
+                      ),
                     ],
                   ),
                 ),
@@ -174,7 +304,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     children: [
                       _buildNavigationRow(
-                        title: 'About Syd Flows',
+                        title: 'About SYD FLOWS',
                         onTap: () {
                           Navigator.push(
                             context,

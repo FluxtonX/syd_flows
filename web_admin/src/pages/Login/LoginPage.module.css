@@ -280,6 +280,55 @@
   font-size: var(--font-size-sm);
 }
 
+.quickFillBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 107, 0, 0.08);
+  border: 1px dashed rgba(255, 107, 0, 0.4);
+  border-radius: var(--radius-md);
+  color: var(--color-primary, #ff6b00);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  margin-top: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+.quickFillBtn:hover {
+  background: rgba(255, 107, 0, 0.16);
+  border-color: var(--color-primary, #ff6b00);
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(255, 107, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.quickFillBtn:active {
+  transform: translateY(0);
+}
+
+.eyeToggleBtn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-tertiary, #9ca3af);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.eyeToggleBtn:hover {
+  color: var(--color-text-primary, #ffffff);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .submitBtn {
   margin-top: var(--space-2);
 }

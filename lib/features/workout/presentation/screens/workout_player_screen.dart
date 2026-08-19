@@ -6,6 +6,10 @@ import 'package:video_player/video_player.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/local_storage_service.dart';
+import '../../../../core/services/workout_service.dart';
+import '../../../../core/utils/helpers.dart';
 import 'workout_screen.dart';
 import 'workout_complete_screen.dart';
 
@@ -28,6 +32,9 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
   Timer? _timer;
   bool _isPlaying = true;
   int _elapsedSeconds = 0;
+  bool _hasVideoError = false;
+  bool _hasSavedProgress = false;
+  bool _isRestored = false;
 
   int get _totalSeconds {
     if (_youtubeController != null &&
@@ -41,8 +48,6 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
     }
     return widget.workout.duration * 60;
   }
-
-  bool _hasVideoError = false;
 
   @override
   void initState() {
@@ -75,6 +80,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
           });
           _videoPlayerController!.play();
           _videoPlayerController!.setLooping(false);
+          _restoreSavedPosition();
         }).catchError((error) {
           if (!mounted) return;
           setState(() {
@@ -85,6 +91,69 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
       _videoPlayerController!.addListener(_onVideoPlayerStateChange);
     } else {
       _startTimer();
+    }
+
+    _restoreSavedPosition();
+  }
+
+  Future<void> _restoreSavedPosition() async {
+    if (_isRestored) return;
+    final posKey = 'video_pos_${widget.workout.id}';
+    final savedSeconds = await LocalStorageService.instance.getInt(posKey);
+    if (savedSeconds != null && savedSeconds > 5 && savedSeconds < _totalSeconds - 10) {
+      _isRestored = true;
+      setState(() {
+        _elapsedSeconds = savedSeconds;
+      });
+
+      if (_youtubeController != null) {
+        _youtubeController!.seekTo(Duration(seconds: savedSeconds));
+      } else if (_videoPlayerController != null && _isVideoInitialized) {
+        _videoPlayerController!.seekTo(Duration(seconds: savedSeconds));
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Resumed workout from ${_formatDuration(savedSeconds)} ⏯️'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: AppColors.wellnessBrown,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveProgressAndExit() async {
+    if (_hasSavedProgress) return;
+    _hasSavedProgress = true;
+
+    final posKey = 'video_pos_${widget.workout.id}';
+
+    // 1. Save last position timestamp for resuming later
+    if (_elapsedSeconds > 5 && _elapsedSeconds < _totalSeconds - 10) {
+      await LocalStorageService.instance.saveInt(posKey, _elapsedSeconds);
+      Helpers.log('Saved video resume position: $_elapsedSeconds seconds for workout ${widget.workout.id}');
+    } else if (_elapsedSeconds >= _totalSeconds - 10) {
+      await LocalStorageService.instance.remove(posKey);
+    }
+
+    // 2. Record partial minutes to Firestore workout_history for graph
+    final user = AuthService.instance.currentUser;
+    if (user != null && _elapsedSeconds >= 15) {
+      final durationMins = (_elapsedSeconds / 60.0).ceil();
+      final calories = ((durationMins / widget.workout.duration) * 140).round().clamp(10, 300);
+
+      await WorkoutService.instance.logCompletedWorkout(
+        uid: user.uid,
+        workout: widget.workout,
+        duration: durationMins,
+        calories: calories,
+      );
+
+      Helpers.log('Saved partial workout: $durationMins mins for user ${user.uid}');
     }
   }
 
@@ -195,7 +264,12 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
-  void _showFinishedScreen() {
+  void _showFinishedScreen() async {
+    _hasSavedProgress = true;
+    final posKey = 'video_pos_${widget.workout.id}';
+    await LocalStorageService.instance.remove(posKey);
+
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -213,15 +287,20 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
     final remainingSeconds = _totalSeconds - _elapsedSeconds;
     final progress = _totalSeconds > 0 ? _elapsedSeconds / _totalSeconds : 0.0;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-        systemNavigationBarColor: Color(0xFF3B2413),
-        systemNavigationBarIconBrightness: Brightness.light,
-      ),
-      child: Scaffold(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        await _saveProgressAndExit();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: Color(0xFF3B2413),
+          systemNavigationBarIconBrightness: Brightness.light,
+        ),
+        child: Scaffold(
         backgroundColor: const Color(0xFF3B2413),
         body: Stack(
           children: [
@@ -335,7 +414,12 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
             top: MediaQuery.of(context).padding.top + 12.0,
             left: AppSpacing.l,
             child: GestureDetector(
-              onTap: () => Navigator.pop(context),
+              onTap: () async {
+                await _saveProgressAndExit();
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+              },
               child: Container(
                 width: 42,
                 height: 42,
@@ -495,6 +579,7 @@ class _WorkoutPlayerScreenState extends State<WorkoutPlayerScreen> {
         ],
       ),
     ),
-  );
+  ),
+);
 }
 }

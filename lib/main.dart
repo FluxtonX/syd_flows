@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -6,9 +7,13 @@ import 'app.dart';
 import 'core/services/local_storage_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/utils/helpers.dart';
+import 'features/cycle/presentation/widgets/cycle_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Enable edge-to-edge mode for transparent system navigation bar
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   // Configure transparent status bar and navigation bar globally
   SystemChrome.setSystemUIOverlayStyle(
@@ -17,7 +22,9 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
       statusBarBrightness: Brightness.light,
       systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
       systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
     ),
   );
 
@@ -33,5 +40,5 @@ void main() async {
     Helpers.log('Error initializing core services: $e');
   }
 
-  runApp(const SydFlowApp());
+  runApp(const CycleProviderRoot(child: SydFlowApp()));
 }

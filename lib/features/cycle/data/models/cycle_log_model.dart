@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../presentation/screens/cycle_screen.dart';
+import 'package:syd_flow/features/cycle/data/models/cycle_types.dart';
 
 class CycleLogModel {
   final String dateKey;
@@ -22,7 +22,11 @@ class CycleLogModel {
     this.updatedAt,
   });
 
-  factory CycleLogModel.fromDayJournal(String dateKey, DayJournal journal, {int? dayNumber}) {
+  factory CycleLogModel.fromDayJournal(
+    String dateKey,
+    DayJournal journal, {
+    int? dayNumber,
+  }) {
     return CycleLogModel(
       dateKey: dateKey,
       dayNumber: dayNumber,
@@ -53,11 +57,15 @@ class CycleLogModel {
       'symptoms': symptoms,
       'energy': energy,
       'notes': notes,
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
+      'updatedAt': updatedAt != null
+          ? Timestamp.fromDate(updatedAt!)
+          : FieldValue.serverTimestamp(),
     };
   }
 
-  factory CycleLogModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory CycleLogModel.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data() ?? {};
     return CycleLogModel(
       dateKey: doc.id,

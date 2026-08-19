@@ -24,7 +24,10 @@ class _FirstPeriodStepState extends State<FirstPeriodStep> {
   @override
   void initState() {
     super.initState();
-    _focusedMonth = DateTime(widget.selectedDate.year, widget.selectedDate.month);
+    _focusedMonth = DateTime(
+      widget.selectedDate.year,
+      widget.selectedDate.month,
+    );
   }
 
   void _previousMonth() {
@@ -40,9 +43,19 @@ class _FirstPeriodStepState extends State<FirstPeriodStep> {
   }
 
   List<String> _getMonthNames() => [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-      ];
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -50,15 +63,27 @@ class _FirstPeriodStepState extends State<FirstPeriodStep> {
     final year = _focusedMonth.year;
 
     // Calculate days of the month
-    final firstDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
-    final lastDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
+    final firstDayOfMonth = DateTime(
+      _focusedMonth.year,
+      _focusedMonth.month,
+      1,
+    );
+    final lastDayOfMonth = DateTime(
+      _focusedMonth.year,
+      _focusedMonth.month + 1,
+      0,
+    );
 
     // Day of the week the month starts on (0 = Monday, 6 = Sunday in Dart, but we want 0 = Sunday, 6 = Saturday)
     // firstDayOfMonth.weekday is 1 (Mon) to 7 (Sun)
     final int startWeekdayOffset = (firstDayOfMonth.weekday % 7);
 
     final totalDaysInMonth = lastDayOfMonth.day;
-    final totalDaysInPrevMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 0).day;
+    final totalDaysInPrevMonth = DateTime(
+      _focusedMonth.year,
+      _focusedMonth.month,
+      0,
+    ).day;
 
     final List<Widget> dayWidgets = [];
 
@@ -81,12 +106,48 @@ class _FirstPeriodStepState extends State<FirstPeriodStep> {
     // Previous month days (faded)
     for (int i = startWeekdayOffset - 1; i >= 0; i--) {
       final dayNum = totalDaysInPrevMonth - i;
+      final prevDate = DateTime(
+        _focusedMonth.year,
+        _focusedMonth.month - 1,
+        dayNum,
+      );
+      final isSelected =
+          prevDate.year == widget.selectedDate.year &&
+          prevDate.month == widget.selectedDate.month &&
+          prevDate.day == widget.selectedDate.day;
+
       dayWidgets.add(
-        Center(
-          child: Text(
-            dayNum.toString(),
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.wellnessGray.withValues(alpha: 0.35),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _focusedMonth = DateTime(
+                _focusedMonth.year,
+                _focusedMonth.month - 1,
+              );
+            });
+            widget.onDateSelected(prevDate);
+          },
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 38.0,
+              height: 38.0,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? AppColors.wellnessBrown
+                    : AppColors.transparent,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                dayNum.toString(),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: isSelected
+                      ? AppColors.white
+                      : AppColors.wellnessGray.withValues(alpha: 0.35),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
             ),
           ),
         ),
@@ -96,7 +157,8 @@ class _FirstPeriodStepState extends State<FirstPeriodStep> {
     // Current month days
     for (int day = 1; day <= totalDaysInMonth; day++) {
       final date = DateTime(_focusedMonth.year, _focusedMonth.month, day);
-      final isSelected = date.year == widget.selectedDate.year &&
+      final isSelected =
+          date.year == widget.selectedDate.year &&
           date.month == widget.selectedDate.month &&
           date.day == widget.selectedDate.day;
 
@@ -110,14 +172,16 @@ class _FirstPeriodStepState extends State<FirstPeriodStep> {
               height: 38.0,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isSelected ? AppColors.wellnessBrown : AppColors.transparent,
+                color: isSelected
+                    ? AppColors.wellnessBrown
+                    : AppColors.transparent,
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
                           color: AppColors.wellnessBrown.withValues(alpha: 0.2),
                           blurRadius: 6.0,
                           offset: const Offset(0, 2),
-                        )
+                        ),
                       ]
                     : null,
               ),
@@ -135,15 +199,52 @@ class _FirstPeriodStepState extends State<FirstPeriodStep> {
       );
     }
 
-    // Next month days (faded) to fill grid
-    final int remainingSlots = 49 - dayWidgets.length; // 7 rows total = 49 items
+    // Next month days (faded) to fill grid (6 rows = 42 slots max)
+    final int targetGridCount = dayWidgets.length > 35 ? 42 : 35;
+    final int remainingSlots = targetGridCount - dayWidgets.length;
     for (int day = 1; day <= remainingSlots; day++) {
+      final nextDate = DateTime(
+        _focusedMonth.year,
+        _focusedMonth.month + 1,
+        day,
+      );
+      final isSelected =
+          nextDate.year == widget.selectedDate.year &&
+          nextDate.month == widget.selectedDate.month &&
+          nextDate.day == widget.selectedDate.day;
+
       dayWidgets.add(
-        Center(
-          child: Text(
-            day.toString(),
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.wellnessGray.withValues(alpha: 0.35),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _focusedMonth = DateTime(
+                _focusedMonth.year,
+                _focusedMonth.month + 1,
+              );
+            });
+            widget.onDateSelected(nextDate);
+          },
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 38.0,
+              height: 38.0,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? AppColors.wellnessBrown
+                    : AppColors.transparent,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                day.toString(),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: isSelected
+                      ? AppColors.white
+                      : AppColors.wellnessGray.withValues(alpha: 0.35),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
             ),
           ),
         ),

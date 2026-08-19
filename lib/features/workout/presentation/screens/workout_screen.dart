@@ -4,9 +4,12 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/subscription_service.dart';
 import '../../data/models/workout_model.dart';
 import '../widgets/workout_filters_bottom_sheet.dart';
 import 'workout_detail_screen.dart';
+
 
 export '../../data/models/workout_model.dart';
 
@@ -114,11 +117,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = AuthService.instance.currentUser;
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('videos')
-          .snapshots(),
+      stream: user != null
+          ? FirebaseFirestore.instance.collection('videos').snapshots()
+          : const Stream.empty(),
       builder: (context, snapshot) {
+
         if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return const Scaffold(
             backgroundColor: AppColors.transparent,
@@ -189,7 +194,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                               color: AppColors.wellnessBrown,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Search workouts, instructors...',
+                              hintText: 'Search workouts, categories...',
                               hintStyle: AppTextStyles.bodyMedium.copyWith(
                                 color: AppColors.wellnessGray.withValues(
                                   alpha: 0.6,
@@ -252,9 +257,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
                   // Workouts List
                   Expanded(
-                    child: filteredWorkouts.isEmpty
-                        ? _buildEmptyState(allWorkouts.isEmpty)
-                        : _buildListView(filteredWorkouts),
+                    child: StreamBuilder<bool>(
+                      stream: SubscriptionService.instance.streamHasPremiumAccess(),
+                      builder: (context, accessSnapshot) {
+                        if (filteredWorkouts.isEmpty) {
+                          return _buildEmptyState(allWorkouts.isEmpty);
+                        }
+                        return _buildListView(
+                          filteredWorkouts,
+                          hasPremiumAccess: accessSnapshot.data == true,
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -336,18 +350,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  Widget _buildListView(List<Workout> workouts) {
+  Widget _buildListView(
+    List<Workout> workouts, {
+    required bool hasPremiumAccess,
+  }) {
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: AppSpacing.l),
       itemCount: workouts.length,
       itemBuilder: (context, index) {
-        return _buildListCard(workouts[index]);
+        return _buildListCard(
+          workouts[index],
+          hasPremiumAccess: hasPremiumAccess,
+        );
       },
     );
   }
 
-  Widget _buildListCard(Workout workout) {
+  Widget _buildListCard(
+    Workout workout, {
+    required bool hasPremiumAccess,
+  }) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -414,6 +437,36 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                             ),
                           )),
               ),
+
+              if (workout.isPaid)
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.wellnessBrown.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!hasPremiumAccess) ...const [
+                          Icon(Icons.lock_rounded, color: Colors.white, size: 12),
+                          SizedBox(width: 4),
+                        ],
+                        const Text(
+                          'PREMIUM',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
               // 2. Horizontal Gradient Overlay (Darker on the right)
               Positioned.fill(

@@ -54,6 +54,21 @@
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
 }
 
+.input.hasRightElement {
+  padding-right: var(--space-12);
+}
+
+.rightElement {
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
 .textarea {
   height: auto;
   min-height: 100px;

@@ -15,7 +15,7 @@ class AppSuccessBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 50,
+      constraints: const BoxConstraints(minHeight: 50),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
       decoration: BoxDecoration(
         color: AppColors.successGreenBg,
@@ -34,7 +34,6 @@ class AppSuccessBanner extends StatelessWidget {
         ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(2.0),
@@ -49,12 +48,17 @@ class AppSuccessBanner extends StatelessWidget {
             ),
           ),
           AppSpacing.w8,
-          Text(
-            message,
-            style: AppTextStyles.labelMedium.copyWith(
-              color: AppColors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 14.0,
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14.0,
+                height: 1.25,
+              ),
             ),
           ),
         ],

@@ -191,9 +191,9 @@ export function UploadVideoPage() {
                   </svg>
                 </div>
                 <div>
-                  <h2 className={styles.cardHeaderTitle}>Video Details</h2>
+                  <h2 className={styles.cardHeaderTitle}>Workout Video Details</h2>
                   <p className={styles.cardHeaderSubtitle}>
-                    Fill in the details of your workout video
+                    Configure workout metadata, access tier, and video media file
                   </p>
                 </div>
               </div>
@@ -205,6 +205,59 @@ export function UploadVideoPage() {
                 </svg>
                 Tips for best results
               </button>
+            </div>
+
+            {/* ── Compact Configuration Control Bar ── */}
+            <div className={styles.configBar}>
+              {/* Access Tier Switcher */}
+              <div className={styles.configGroup}>
+                <label className={styles.configLabel}>
+                  <span>Access Tier</span>
+                </label>
+                <div className={styles.segmentedControl}>
+                  <button
+                    type="button"
+                    className={`${styles.segmentedBtn} ${!watch('premium') ? styles.segmentedBtnActiveFree : ''}`}
+                    onClick={() => setValue('premium', false, { shouldValidate: true })}
+                  >
+                    <span className={styles.segmentedIcon}>🎁</span>
+                    <span>Free Access</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.segmentedBtn} ${watch('premium') ? styles.segmentedBtnActivePaid : ''}`}
+                    onClick={() => setValue('premium', true, { shouldValidate: true })}
+                  >
+                    <span className={styles.segmentedIcon}>🔒</span>
+                    <span>Paid / Premium</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Video Media Source Switcher */}
+              <div className={styles.configGroup}>
+                <label className={styles.configLabel}>
+                  <span>Video Source</span>
+                </label>
+                <div className={styles.segmentedControl}>
+                  <button
+                    type="button"
+                    className={`${styles.segmentedBtn} ${watch('videoSource') === 'custom' ? styles.segmentedBtnActive : ''}`}
+                    onClick={() => setValue('videoSource', 'custom', { shouldValidate: true })}
+                  >
+                    <span className={styles.segmentedIcon}>📁</span>
+                    <span>Direct Video Upload</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.segmentedBtn} ${watch('videoSource') === 'youtube' ? styles.segmentedBtnActive : ''}`}
+                    onClick={() => setValue('videoSource', 'youtube', { shouldValidate: true })}
+                  >
+                    <span className={styles.segmentedIcon}>🔗</span>
+                    <span>YouTube Link</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Upload Progress */}
@@ -224,7 +277,7 @@ export function UploadVideoPage() {
                   <Input
                     label="Workout Title"
                     type="text"
-                    placeholder="Auto-filled from video file or type custom"
+                    placeholder="e.g. 10 Minute Pilates Booty Burn"
                     required
                     error={errors.title?.message}
                     {...register('title')}
@@ -240,7 +293,7 @@ export function UploadVideoPage() {
                   />
                 </div>
 
-                {/* Category & Difficulty side-by-side */}
+                {/* Category & Cycle Phase side-by-side */}
                 <div className={styles.row2}>
                   <Controller
                     name="category"
@@ -319,45 +372,23 @@ export function UploadVideoPage() {
                   <span className={styles.charCount}>{descriptionValue.length}/500</span>
                 </div>
 
-                {/* Video Type / Access Tier Rule: YouTube = Free, Custom Web Admin Upload = Paid/Locked */}
-                <div className={styles.radioGroup}>
-                  <span className={styles.radioLabel}>Video Source & Subscription Access *</span>
-                  <Controller
-                    name="videoSource"
-                    control={control}
-                    render={({ field }) => (
-                      <div className={styles.radioOptions} style={{ gap: '16px', marginTop: '6px' }}>
-                        <label className={styles.radioOption} style={{ padding: '8px 12px', border: '1px solid var(--color-border)', borderRadius: '8px', cursor: 'pointer' }}>
-                          <input
-                            type="radio"
-                            name="video-source-radio"
-                            checked={field.value === 'youtube'}
-                            onChange={() => {
-                              field.onChange('youtube');
-                              setValue('premium', false);
-                            }}
-                          />
-                          <span>🎁 YouTube Link (Free Video)</span>
-                        </label>
-                        <label className={styles.radioOption} style={{ padding: '8px 12px', border: '1px solid var(--color-border)', borderRadius: '8px', cursor: 'pointer' }}>
-                          <input
-                            type="radio"
-                            name="video-source-radio"
-                            checked={field.value === 'custom'}
-                            onChange={() => {
-                              field.onChange('custom');
-                              setValue('premium', true);
-                            }}
-                          />
-                          <span>🔒 Custom File Upload (Paid / Subscription)</span>
-                        </label>
-                      </div>
-                    )}
-                  />
-                </div>
+                {/* YouTube Link Field (If YouTube mode selected) */}
+                {watch('videoSource') === 'youtube' && (
+                  <div style={{ marginTop: '4px' }}>
+                    <Input
+                      label="YouTube Video Link *"
+                      type="url"
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      required
+                      error={errors.youtubeUrl?.message}
+                      {...register('youtubeUrl')}
+                      hint="Paste YouTube video URL for streaming playback in the mobile app"
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* Right Column: Media File Upload / Link Input Boxes */}
+              {/* Right Column: Media File Upload Boxes */}
               <div className={styles.rightCol}>
                 {/* Thumbnail Image Box */}
                 <div className={styles.uploadBox}>
@@ -383,40 +414,23 @@ export function UploadVideoPage() {
                   />
                 </div>
 
-                {/* Workout Video Link or File Box */}
-                {watch('videoSource') === 'youtube' ? (
-                  <div className={`${styles.uploadBox} ${styles.uploadBoxFree}`}>
+                {/* HD Custom Video File Upload Box (If Direct Upload selected) */}
+                {watch('videoSource') === 'custom' ? (
+                  <div className={`${styles.uploadBox} ${watch('premium') ? styles.uploadBoxPaid : styles.uploadBoxFree}`}>
                     <div className={styles.uploadBoxHeader}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span className={styles.uploadBoxTitle}>🎁 YouTube Video Link (Free Access)</span>
-                        <span className={styles.badgeFree}>
-                          FREE VIDEO
+                        <span className={styles.uploadBoxTitle}>
+                          {watch('premium') ? '🔒 Custom Video File (Paid / Subscription)' : '🎁 Custom Video File (Free Workout)'}
                         </span>
-                      </div>
-                      <span className={styles.uploadBoxSubtitle}>Paste public YouTube URL for free video stream</span>
-                    </div>
-                    <div style={{ marginTop: '12px' }}>
-                      <Input
-                        label="YouTube Video URL *"
-                        type="url"
-                        placeholder="https://www.youtube.com/watch?v=..."
-                        error={errors.youtubeUrl?.message}
-                        {...register('youtubeUrl')}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className={`${styles.uploadBox} ${styles.uploadBoxPaid}`}>
-                    <div className={styles.uploadBoxHeader}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span className={styles.uploadBoxTitle}>🔒 Custom Video File (Paid / Subscription)</span>
                         {detectedDuration && (
                           <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-primary)', background: 'var(--color-nav-active-bg)', padding: '2px 8px', borderRadius: 'var(--radius-full)' }}>
                             ⏱ Duration: {detectedDuration}
                           </span>
                         )}
                       </div>
-                      <span className={styles.uploadBoxSubtitle}>Directly uploaded MP4 files are locked for paid subscribers</span>
+                      <span className={styles.uploadBoxSubtitle}>
+                        Direct video upload to cloud storage
+                      </span>
                     </div>
                     <Controller
                       name="video"
@@ -434,6 +448,17 @@ export function UploadVideoPage() {
                         />
                       )}
                     />
+                  </div>
+                ) : (
+                  <div className={`${styles.uploadBox} ${watch('premium') ? styles.uploadBoxPaid : styles.uploadBoxFree}`}>
+                    <div className={styles.uploadBoxHeader}>
+                      <span className={styles.uploadBoxTitle}>
+                        {watch('premium') ? '🔒 YouTube Embed (Paid / Subscription)' : '🎁 YouTube Embed (Free Workout)'}
+                      </span>
+                      <span className={styles.uploadBoxSubtitle}>
+                        This workout video will stream via YouTube link in the SYD FLOW mobile application.
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

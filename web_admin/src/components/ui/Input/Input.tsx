@@ -9,6 +9,7 @@ interface BaseProps {
   error?: string;
   hint?: string;
   required?: boolean;
+  rightElement?: React.ReactNode;
 }
 
 type InputProps = BaseProps &
@@ -24,7 +25,7 @@ type TextareaProps = BaseProps &
 type Props = InputProps | TextareaProps;
 
 export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, Props>(
-  ({ label, error, hint, required, as: Tag = 'input', className = '', ...rest }, ref) => {
+  ({ label, error, hint, required, rightElement, as: Tag = 'input', className = '', ...rest }, ref) => {
     const id = `input-${label.toLowerCase().replace(/\s+/g, '-')}`;
     const hasError = Boolean(error);
 
@@ -32,6 +33,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, Props>(
       styles.input,
       Tag === 'textarea' ? styles.textarea : '',
       hasError ? styles.hasError : '',
+      rightElement ? styles.hasRightElement : '',
       className,
     ]
       .filter(Boolean)
@@ -63,6 +65,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, Props>(
               {...(rest as InputHTMLAttributes<HTMLInputElement>)}
             />
           )}
+          {rightElement && <div className={styles.rightElement}>{rightElement}</div>}
         </div>
         {error && (
           <span id={`${id}-error`} className={styles.error} role="alert">

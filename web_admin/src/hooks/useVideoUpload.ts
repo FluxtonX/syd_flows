@@ -44,9 +44,9 @@ export function useVideoUpload(): UseVideoUploadReturn {
       let videoPublicId = '';
       let youtubeId = '';
 
+      const isPaid = Boolean(data.premium);
+      const isFree = !isPaid;
       const isYouTube = data.videoSource === 'youtube';
-      const isPaid = !isYouTube; // YouTube videos = Free; Custom Uploads = Paid / Subscription Required
-      const isFree = isYouTube;
 
       // Step 1: Upload thumbnail if provided
       if (thumbnailFile) {
