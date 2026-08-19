@@ -8,7 +8,7 @@
 
     <!-- Your Apple Developer Team ID (find at developer.apple.com → Account → Membership) -->
     <key>teamID</key>
-    <string>YOUR_TEAM_ID</string>
+    <string>Y2KYFLYWJZ</string>
 
     <!-- App Store Connect API for upload -->
     <key>destination</key>
@@ -19,6 +19,7 @@
     <true/>
 
     <!-- Provisioning profiles mapping: bundle ID → profile name -->
+    <!-- IMPORTANT: profile name must EXACTLY match what you created on developer.apple.com -->
     <key>provisioningProfiles</key>
     <dict>
         <key>com.sydflows.sydflows</key>
