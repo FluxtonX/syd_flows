@@ -73,7 +73,10 @@ jobs:
         run: |
           PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
           mkdir -p "$PROFILES_DIR"
-          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PROFILES_DIR/syd_flow.mobileprovision"
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PROFILES_DIR/profile.mobileprovision"
+          PROFILE_UUID=$(security cms -D -i "$PROFILES_DIR/profile.mobileprovision" | grep -A1 UUID | grep string | sed -e 's/<[^>]*>//g' | tr -d ' \t')
+          echo "Profile UUID: $PROFILE_UUID"
+          cp "$PROFILES_DIR/profile.mobileprovision" "$PROFILES_DIR/$PROFILE_UUID.mobileprovision"
 
       # ── 8. Build iOS IPA ──────────────────────────────
       - name: Build Flutter iOS (release)
