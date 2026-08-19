@@ -10,9 +10,9 @@
     <key>teamID</key>
     <string>Y2KYFLYWJZ</string>
 
-    <!-- App Store Connect API for upload -->
+    <!-- App Store Connect export destination -->
     <key>destination</key>
-    <string>upload</string>
+    <string>export</string>
 
     <!-- Strip Swift symbols to reduce IPA size -->
     <key>stripSwiftSymbols</key>

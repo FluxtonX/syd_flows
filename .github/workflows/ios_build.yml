@@ -97,12 +97,29 @@ jobs:
 
       # ── 10. Upload to TestFlight ──────────────────────
       - name: Upload to TestFlight
-        uses: apple-actions/upload-testflight-build@v1
-        with:
-          app-path: build/ios/ipa/*.ipa
-          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          api-private-key: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+        env:
+          KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          mkdir -p "$HOME/private_keys" "$HOME/.private_keys" "$HOME/.appstoreconnect/private_keys"
+          if echo "$KEY_CONTENT" | grep -q "BEGIN PRIVATE KEY"; then
+            echo "$KEY_CONTENT" > "$HOME/private_keys/AuthKey_${KEY_ID}.p8"
+          else
+            echo "$KEY_CONTENT" | base64 --decode > "$HOME/private_keys/AuthKey_${KEY_ID}.p8"
+          fi
+          cp "$HOME/private_keys/AuthKey_${KEY_ID}.p8" "$HOME/.private_keys/AuthKey_${KEY_ID}.p8"
+          cp "$HOME/private_keys/AuthKey_${KEY_ID}.p8" "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
+          
+          IPA_FILE=$(find build/ios/ipa -name "*.ipa" | head -n 1)
+          echo "Found IPA: $IPA_FILE"
+          
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_FILE" \
+            --apiKey "$KEY_ID" \
+            --apiIssuer "$ISSUER_ID" \
+            --show-progress
 
       # ── 11. Cleanup keychain ──────────────────────────
       - name: Cleanup keychain
