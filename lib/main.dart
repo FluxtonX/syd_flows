@@ -12,7 +12,7 @@ import 'features/cycle/presentation/widgets/cycle_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Enable edge-to-edge mode for transparent system navigation bar
+  // Enable edge-to-edge mode for transparent system navigation bar//////
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   // Configure transparent status bar and navigation bar globally
