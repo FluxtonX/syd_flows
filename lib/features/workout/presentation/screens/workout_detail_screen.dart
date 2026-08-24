@@ -30,99 +30,6 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   String _bannerMessage = '';
   Timer? _bannerTimer;
 
-  final Map<String, Map<String, dynamic>> _details = {
-    '1': {
-      'category': 'YOGA',
-      'instructor': 'WITH MAYA LINDEN',
-      'about':
-          'A slow, breath-led flow designed to ease tension and gently wake the body. Perfect for low-energy mornings.',
-      'benefits': [
-        'Improves flexibility',
-        'Calms the nervous system',
-        'Boosts circulation',
-      ],
-      'phases': [
-        {'name': 'Follicular', 'bg': Color(0xFFFFD8B3)},
-        {'name': 'Luteal', 'bg': Color(0xFFF3D5E4)},
-      ],
-      'symptoms': ['Bloating', 'Low mood', 'Fatigue'],
-      'equipment': ['Mat'],
-    },
-    '2': {
-      'category': 'PILATES',
-      'instructor': 'WITH EMILY WATSON',
-      'about':
-          'A focused core session designed to build stability, alignment, and strength. Ideal for high-energy days.',
-      'benefits': ['Strengthens core', 'Improves posture', 'Enhances balance'],
-      'phases': [
-        {'name': 'Follicular', 'bg': Color(0xFFFFD8B3)},
-        {'name': 'Ovulation', 'bg': Color(0xFFE8D4F0)},
-      ],
-      'symptoms': ['Cramps', 'Fatigue'],
-      'equipment': ['Mat'],
-    },
-    '3': {
-      'category': 'STRENGTH',
-      'instructor': 'WITH MARCUS CHEN',
-      'about':
-          'A high-intensity strength circuit targeting major muscle groups. Great for maximum fat burn and power building.',
-      'benefits': [
-        'Increases power',
-        'Boosts metabolism',
-        'Builds lean muscle',
-      ],
-      'phases': [
-        {'name': 'Follicular', 'bg': Color(0xFFFFD8B3)},
-        {'name': 'Ovulation', 'bg': Color(0xFFE8D4F0)},
-      ],
-      'symptoms': ['Low mood'],
-      'equipment': ['Dumbbells', 'Mat'],
-    },
-    '4': {
-      'category': 'MOBILITY',
-      'instructor': 'WITH SARAH JENKINS',
-      'about':
-          'Gentle stretching and mobility drills to release tight muscles and open joints. Perfect recovery session.',
-      'benefits': ['Relieves tension', 'Enhances mobility', 'Reduces soreness'],
-      'phases': [
-        {'name': 'Luteal', 'bg': Color(0xFFF3D5E4)},
-        {'name': 'Menstrual', 'bg': Color(0xFFFFC6C6)},
-      ],
-      'symptoms': ['Bloating', 'Headache', 'Cramps'],
-      'equipment': ['Mat'],
-    },
-    '5': {
-      'category': 'BARRE',
-      'instructor': 'WITH ALYSIA SHARP',
-      'about':
-          'A low-impact, high-repetition workout utilizing ballet bar elements to sculpt and tone muscles.',
-      'benefits': [
-        'Tones legs & glutes',
-        'Low impact',
-        'Improves coordination',
-      ],
-      'phases': [
-        {'name': 'Follicular', 'bg': Color(0xFFFFD8B3)},
-        {'name': 'Luteal', 'bg': Color(0xFFF3D5E4)},
-      ],
-      'symptoms': ['Fatigue', 'Bloating'],
-      'equipment': ['Chair'],
-    },
-    '6': {
-      'category': 'CARDIO',
-      'instructor': 'WITH DANIEL KRAUS',
-      'about':
-          'An outdoor cardio and breathing routine to oxygenate the body and boost mental clarity.',
-      'benefits': ['Improves stamina', 'Boosts mood', 'Fresh air integration'],
-      'phases': [
-        {'name': 'Follicular', 'bg': Color(0xFFFFD8B3)},
-        {'name': 'Ovulation', 'bg': Color(0xFFE8D4F0)},
-      ],
-      'symptoms': ['Anxious', 'Low mood'],
-      'equipment': ['None'],
-    },
-  };
-
   @override
   void dispose() {
     _bannerTimer?.cancel();
@@ -144,7 +51,18 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final detail = _details[widget.workout.id] ?? _details['1']!;
+    // All data is now read from widget.workout, synced live from Firestore via admin panel
+    final String aboutText = widget.workout.description.isNotEmpty
+        ? widget.workout.description
+        : 'No description available.';
+    final List<String> benefits = widget.workout.benefits;
+    final List<String> phases = widget.workout.recommendedPhases;
+    final List<String> symptoms = widget.workout.symptoms;
+    final List<String> equipmentItems = widget.workout.equipmentList.isNotEmpty
+        ? widget.workout.equipmentList
+        : (widget.workout.propsUsed.isNotEmpty
+              ? [widget.workout.propsUsed]
+              : ['Mat']);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -173,7 +91,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                       _buildCoverImage(),
 
                       // 2. Overlapping Detail Card
-                      _buildOverlappingDetailCard(detail),
+                      _buildOverlappingDetailCard(),
 
                       // 3. Detail Content Sections
                       Padding(
@@ -189,7 +107,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                             _buildSectionTitle('About'),
                             const SizedBox(height: 8.0),
                             Text(
-                              detail['about'],
+                              aboutText,
                               style: AppTextStyles.bodyMedium.copyWith(
                                 color: AppColors.wellnessBrown.withValues(
                                   alpha: 0.9,
@@ -200,37 +118,34 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                             ),
                             AppSpacing.h24,
 
-                            // Benefits Section
-                            _buildSectionTitle('Benefits'),
-                            const SizedBox(height: 12.0),
-                            ...List.generate(
-                              (detail['benefits'] as List).length,
-                              (index) => _buildBenefitCheckItem(
-                                detail['benefits'][index],
-                              ),
-                            ),
-                            AppSpacing.h24,
+                            // Benefits Section (only show if data exists)
+                            if (benefits.isNotEmpty) ...[
+                              _buildSectionTitle('Benefits'),
+                              const SizedBox(height: 12.0),
+                              ...benefits.map((b) => _buildBenefitCheckItem(b)),
+                              AppSpacing.h24,
+                            ],
 
                             // Recommended phases Section
-                            _buildSectionTitle('Recommended phases'),
-                            const SizedBox(height: 10.0),
-                            _buildPhaseChips((detail['phases'] as List?) ?? []),
-                            AppSpacing.h24,
+                            if (phases.isNotEmpty) ...[
+                              _buildSectionTitle('Recommended phases'),
+                              const SizedBox(height: 10.0),
+                              _buildPhaseChips(phases),
+                              AppSpacing.h24,
+                            ],
 
                             // Symptom-friendly Section
-                            _buildSectionTitle('Symptom-friendly'),
-                            const SizedBox(height: 10.0),
-                            _buildSymptomChips(
-                              (detail['symptoms'] as List?) ?? [],
-                            ),
-                            AppSpacing.h24,
+                            if (symptoms.isNotEmpty) ...[
+                              _buildSectionTitle('Symptom-friendly'),
+                              const SizedBox(height: 10.0),
+                              _buildSymptomChips(symptoms),
+                              AppSpacing.h24,
+                            ],
 
                             // You'll need Section
                             _buildSectionTitle('You\'ll need'),
                             const SizedBox(height: 10.0),
-                            _buildEquipmentChips(
-                              (detail['equipment'] as List?) ?? [],
-                            ),
+                            _buildEquipmentChips(equipmentItems),
                             AppSpacing.h24,
                           ],
                         ),
@@ -363,7 +278,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                 return GestureDetector(
                   onTap: () {
                     if (!widget.workout.hasVideo) {
-                      _triggerSuccessBanner('No video available for this workout');
+                      _triggerSuccessBanner(
+                        'No video available for this workout',
+                      );
                       return;
                     }
                     if (isLocked) {
@@ -378,7 +295,8 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => WorkoutPlayerScreen(workout: widget.workout),
+                        builder: (context) =>
+                            WorkoutPlayerScreen(workout: widget.workout),
                       ),
                     );
                   },
@@ -400,8 +318,8 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                       isLocked
                           ? Icons.lock_rounded
                           : (widget.workout.hasVideo
-                              ? Icons.play_arrow_rounded
-                              : Icons.videocam_off_rounded),
+                                ? Icons.play_arrow_rounded
+                                : Icons.videocam_off_rounded),
                       color: AppColors.wellnessBrown,
                       size: 34,
                     ),
@@ -522,7 +440,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     );
   }
 
-  Widget _buildOverlappingDetailCard(Map<String, dynamic> detail) {
+  Widget _buildOverlappingDetailCard() {
     return Container(
       transform: Matrix4.translationValues(0.0, -32.0, 0.0),
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
@@ -543,7 +461,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         children: [
           // Category Label
           Text(
-            (detail['category'] ?? widget.workout.category).toString().toUpperCase(),
+            widget.workout.category.toUpperCase(),
             style: AppTextStyles.labelSmall.copyWith(
               color: const Color(0xFFEE8AA4),
               fontWeight: FontWeight.bold,
@@ -561,6 +479,19 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
               fontSize: 26.0,
             ),
           ),
+
+          // Trainer Name (synced from admin)
+          if (widget.workout.trainer.isNotEmpty) ...[
+            const SizedBox(height: 6.0),
+            Text(
+              'with ${widget.workout.trainer}',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.wellnessBrown.withValues(alpha: 0.65),
+                fontStyle: FontStyle.italic,
+                fontSize: 14.0,
+              ),
+            ),
+          ],
           const SizedBox(height: 16.0),
 
           // Duration Card (Full Width Single Card)
@@ -654,23 +585,16 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       spacing: 8.0,
       runSpacing: 8.0,
       children: phases.map((phaseItem) {
-        String phaseName = '';
-        Color phaseBg = const Color(0xFFFFD8B3);
-
-        if (phaseItem is Map) {
-          phaseName = phaseItem['name']?.toString() ?? '';
-          phaseBg = (phaseItem['bg'] as Color?) ?? const Color(0xFFFFD8B3);
+        String phaseName = phaseItem.toString();
+        Color phaseBg;
+        if (phaseName.contains('Luteal')) {
+          phaseBg = const Color(0xFFF3D5E4);
+        } else if (phaseName.contains('Menstrual')) {
+          phaseBg = const Color(0xFFFFC6C6);
+        } else if (phaseName.contains('Ovulation')) {
+          phaseBg = const Color(0xFFE8D4F0);
         } else {
-          phaseName = phaseItem.toString();
-          if (phaseName == 'Luteal') {
-            phaseBg = const Color(0xFFF3D5E4);
-          } else if (phaseName == 'Menstrual') {
-            phaseBg = const Color(0xFFFFC6C6);
-          } else if (phaseName == 'Ovulation') {
-            phaseBg = const Color(0xFFE8D4F0);
-          } else {
-            phaseBg = const Color(0xFFFFD8B3);
-          }
+          phaseBg = const Color(0xFFFFD8B3);
         }
 
         return Container(

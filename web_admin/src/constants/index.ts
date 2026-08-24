@@ -67,3 +67,25 @@ export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'im
 export const FIRESTORE_COLLECTIONS = {
   VIDEOS: 'videos',
 } as const;
+
+/** Symptom-friendly options for multi-select */
+export const SYMPTOM_OPTIONS = [
+  'Bloating',
+  'Fatigue',
+  'Cramps',
+  'Low mood',
+  'Headache',
+  'Anxious',
+  'Back pain',
+  'Brain fog',
+  'Nausea',
+  'Low energy',
+] as const;
+
+/** Recommended cycle phases — same as CYCLE_PHASES but used for multi-select */
+export const RECOMMENDED_PHASES = [
+  'Menstrual Phase',
+  'Follicular Phase',
+  'Ovulation Phase',
+  'Luteal Phase',
+] as const;

@@ -6,7 +6,6 @@ import {
   ACCEPTED_IMAGE_TYPES,
   MAX_THUMBNAIL_SIZE_BYTES,
   DIFFICULTY_LEVELS,
-  VIDEO_CATEGORIES,
   CYCLE_PHASES,
   MAX_THUMBNAIL_SIZE_MB,
 } from '@/constants';
@@ -62,16 +61,15 @@ export const uploadVideoSchema = z.object({
     .string()
     .min(1, 'Description is required')
     .max(500, 'Description must be 500 characters or less'),
-  category: z.enum(VIDEO_CATEGORIES, {
-    errorMap: () => ({ message: 'Please select a category' }),
-  }),
+  category: z.string().min(1, 'Please select or enter a category'),
   difficulty: z.enum(DIFFICULTY_LEVELS, {
     errorMap: () => ({ message: 'Please select a difficulty level' }),
   }),
   cyclePhase: z.enum(CYCLE_PHASES, {
     errorMap: () => ({ message: 'Please select a cycle phase' }),
   }),
-  propsUsed: z.string().min(1, 'Props / equipment used is required'),
+  /** Multi-select props — at least one required */
+  propsUsed: z.array(z.string()).min(1, 'Please select at least one prop / equipment'),
   duration: z.string().optional().default('00:00'),
   trainer: z
     .string()
@@ -80,6 +78,12 @@ export const uploadVideoSchema = z.object({
   videoSource: z.enum(['youtube', 'custom']).default('custom'),
   youtubeUrl: z.string().optional(),
   premium: z.boolean(),
+  /** Array of benefit text entries */
+  benefits: z.array(z.string().min(1)).optional().default([]),
+  /** Symptom-friendly tags */
+  symptoms: z.array(z.string()).optional().default([]),
+  /** Recommended cycle phases (multi-select) */
+  recommendedPhases: z.array(z.string()).optional().default([]),
   thumbnail: fileListSchema(
     ACCEPTED_IMAGE_TYPES,
     MAX_THUMBNAIL_SIZE_BYTES,

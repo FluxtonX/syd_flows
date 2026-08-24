@@ -56,7 +56,9 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward().then((_) async {
       final user = AuthService.instance.currentUser;
       if (user != null) {
-        final hasCompleted = await UserService.instance.hasUserCompletedSetup(user.uid);
+        final hasCompleted = await UserService.instance.hasUserCompletedSetup(
+          user.uid,
+        );
         if (hasCompleted) {
           NavigationService.pushReplacementNamed(RouteNames.home);
         } else {
@@ -80,10 +82,12 @@ class _SplashScreenState extends State<SplashScreen>
       body: GradientBackground(
         child: SafeArea(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Spacer(flex: 3),
+              const Spacer(flex: 2),
 
-              // Animated Logo Card
+              // Animated Logo Card — centered
               AnimatedBuilder(
                 animation: _controller,
                 builder: (context, child) {
@@ -91,7 +95,7 @@ class _SplashScreenState extends State<SplashScreen>
                     scale: _logoScale.value,
                     child: Opacity(
                       opacity: _logoFade.value,
-                      child: const SplashLogoCard(),
+                      child: const Center(child: SplashLogoCard()),
                     ),
                   );
                 },
@@ -105,32 +109,34 @@ class _SplashScreenState extends State<SplashScreen>
                 builder: (context, child) {
                   return Opacity(
                     opacity: _logoFade.value,
-                    child: RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: AppTextStyles.headlineSmall.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                        children: const [
-                          TextSpan(
-                            text: 'Find Your ',
-                            style: TextStyle(color: AppColors.wellnessBrown),
+                    child: Center(
+                      child: RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          style: AppTextStyles.headlineSmall.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
                           ),
-                          TextSpan(
-                            text: 'Flow',
-                            style: TextStyle(
-                              color: AppColors.wellnessPinkAccent,
+                          children: const [
+                            TextSpan(
+                              text: 'Find Your ',
+                              style: TextStyle(color: AppColors.wellnessBrown),
                             ),
-                          ),
-                        ],
+                            TextSpan(
+                              text: 'Flow',
+                              style: TextStyle(
+                                color: AppColors.wellnessPinkAccent,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
                 },
               ),
 
-              const Spacer(flex: 3),
+              const Spacer(flex: 2),
 
               // Progress indicator at the bottom matching Figma
               AnimatedBuilder(

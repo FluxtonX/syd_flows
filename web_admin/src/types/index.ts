@@ -16,8 +16,15 @@ export interface VideoDocument {
   videoSource: 'youtube' | 'custom';
   youtubeUrl?: string;
   youtubeId?: string;
-  propsUsed: string;
+  /** Supports both legacy string ("Mat") and new multi-select string[] (["Mat","Chair"]) */
+  propsUsed: string | string[];
   cyclePhase: string;
+  /** Array of recommended cycle phases (multi-select) */
+  recommendedPhases?: string[];
+  /** Array of benefit descriptions */
+  benefits?: string[];
+  /** Array of symptom-friendly tags */
+  symptoms?: string[];
   thumbnailUrl: string;
   thumbnailPublicId: string;
   videoUrl: string;

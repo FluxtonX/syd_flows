@@ -14,6 +14,14 @@ class Workout {
   final String? videoUrl;
   final String? videoId;
 
+  // Fields synced from admin panel
+  final String trainer;
+  final String description;
+  final List<String> benefits;
+  final List<String> symptoms;
+  final List<String> recommendedPhases;
+  final List<String> equipmentList;
+
   const Workout({
     required this.id,
     required this.title,
@@ -29,6 +37,12 @@ class Workout {
     required this.imagePath,
     this.videoUrl,
     this.videoId,
+    this.trainer = '',
+    this.description = '',
+    this.benefits = const [],
+    this.symptoms = const [],
+    this.recommendedPhases = const [],
+    this.equipmentList = const [],
   });
 
   bool get hasVideo =>
@@ -60,9 +74,13 @@ class Workout {
 
     final String? vUrl = (map['videoUrl'] as String?)?.isNotEmpty == true
         ? map['videoUrl'] as String
-        : ((map['youtubeUrl'] as String?)?.isNotEmpty == true ? map['youtubeUrl'] as String : null);
+        : ((map['youtubeUrl'] as String?)?.isNotEmpty == true
+              ? map['youtubeUrl'] as String
+              : null);
 
-    final String videoSource = (map['videoSource'] ?? '').toString().toLowerCase();
+    final String videoSource = (map['videoSource'] ?? '')
+        .toString()
+        .toLowerCase();
     String? vId;
 
     if (vUrl != null && vUrl.isNotEmpty) {
@@ -74,7 +92,8 @@ class Workout {
       if (match != null && match.group(1) != null) {
         vId = match.group(1);
       }
-    } else if (videoSource == 'youtube' && (map['youtubeId'] as String?)?.isNotEmpty == true) {
+    } else if (videoSource == 'youtube' &&
+        (map['youtubeId'] as String?)?.isNotEmpty == true) {
       vId = map['youtubeId'] as String;
     }
 
@@ -83,8 +102,8 @@ class Workout {
     String thumb = (map['thumbnailUrl'] as String?)?.isNotEmpty == true
         ? map['thumbnailUrl'] as String
         : ((map['imagePath'] as String?)?.isNotEmpty == true
-            ? map['imagePath'] as String
-            : '');
+              ? map['imagePath'] as String
+              : '');
 
     if (thumb.isEmpty && vId != null && vId.isNotEmpty) {
       thumb = 'https://img.youtube.com/vi/$vId/hqdefault.jpg';
@@ -95,21 +114,65 @@ class Workout {
     // can never accidentally unlock a paid video.
     final isPaid = map['isPaid'] == true || map['premium'] == true;
 
+    // Parse propsUsed — support both legacy string and new List<String>
+    final rawProps = map['propsUsed'] ?? map['equipment'];
+    String propsString;
+    List<String> propsList;
+    if (rawProps is List) {
+      propsList = rawProps.map((e) => e.toString()).toList();
+      propsString = propsList.join(', ');
+    } else {
+      propsString = rawProps?.toString() ?? 'Mat';
+      propsList = propsString.isNotEmpty ? [propsString] : ['Mat'];
+    }
+
+    // Parse benefits — admin stores as List<String>
+    final List<String> benefits = (map['benefits'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList();
+
+    // Parse symptoms (symptomFriendly) — admin stores as List<String>
+    final List<String> symptoms =
+        (map['symptoms'] as List<dynamic>? ??
+                map['symptomFriendly'] as List<dynamic>? ??
+                [])
+            .map((e) => e.toString())
+            .toList();
+
+    // Parse recommendedPhases — admin stores as List<String>
+    // Also keep single cyclePhase string for backward compatibility
+    final List<String> recommendedPhases =
+        (map['recommendedPhases'] as List<dynamic>? ??
+                map['phases'] as List<dynamic>? ??
+                [])
+            .map((e) => e.toString())
+            .toList();
+
+    final String cyclePhaseStr = recommendedPhases.isNotEmpty
+        ? recommendedPhases.first
+        : (map['cyclePhase']?.toString() ?? 'Follicular Phase');
+
     return Workout(
       id: docId,
       title: map['title'] ?? '',
       category: cat.toUpperCase(),
       duration: parsedDuration,
       difficulty: map['difficulty'] ?? 'Gentle',
-      cyclePhase: map['cyclePhase'] ?? 'Follicular Phase',
+      cyclePhase: cyclePhaseStr,
       type: cat,
-      equipment: map['propsUsed'] ?? map['equipment'] ?? 'Mat',
-      propsUsed: map['propsUsed'] ?? map['equipment'] ?? 'Mat',
+      equipment: propsString,
+      propsUsed: propsString,
       isPaid: isPaid,
       isFree: !isPaid,
       imagePath: thumb,
       videoUrl: vUrl,
       videoId: vId,
+      trainer: map['trainer']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      benefits: benefits,
+      symptoms: symptoms,
+      recommendedPhases: recommendedPhases,
+      equipmentList: propsList,
     );
   }
 }
