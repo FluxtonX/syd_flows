@@ -81,70 +81,76 @@ class _SplashScreenState extends State<SplashScreen>
     return Scaffold(
       body: GradientBackground(
         child: SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
+          child: Stack(
             children: [
-              const Spacer(flex: 2),
-
-              // Animated Logo Card — centered
-              AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _logoScale.value,
-                    child: Opacity(
-                      opacity: _logoFade.value,
-                      child: const Center(child: SplashLogoCard()),
-                    ),
-                  );
-                },
-              ),
-
-              AppSpacing.h32,
-
-              // Animated Tagline ("Find Your Flow") matching Figma
-              AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return Opacity(
-                    opacity: _logoFade.value,
-                    child: Center(
-                      child: RichText(
-                        textAlign: TextAlign.center,
-                        text: TextSpan(
-                          style: AppTextStyles.headlineSmall.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
+              // Animated Logo and Tagline — vertically and horizontally centered
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Animated Logo Card
+                    AnimatedBuilder(
+                      animation: _controller,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: _logoScale.value,
+                          child: Opacity(
+                            opacity: _logoFade.value,
+                            child: const SplashLogoCard(),
                           ),
-                          children: const [
-                            TextSpan(
-                              text: 'Find Your ',
-                              style: TextStyle(color: AppColors.wellnessBrown),
-                            ),
-                            TextSpan(
-                              text: 'Flow',
-                              style: TextStyle(
-                                color: AppColors.wellnessPinkAccent,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
 
-              const Spacer(flex: 2),
+                    AppSpacing.h32,
+
+                    // Animated Tagline ("Find Your Flow") matching Figma
+                    AnimatedBuilder(
+                      animation: _controller,
+                      builder: (context, child) {
+                        return Opacity(
+                          opacity: _logoFade.value,
+                          child: RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              style: AppTextStyles.headlineSmall.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                              children: const [
+                                TextSpan(
+                                  text: 'Find Your ',
+                                  style: TextStyle(
+                                    color: AppColors.wellnessBrown,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: 'Flow',
+                                  style: TextStyle(
+                                    color: AppColors.wellnessPinkAccent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
 
               // Progress indicator at the bottom matching Figma
-              AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 56.0),
-                    child: ClipRRect(
+              Positioned(
+                left: 56.0,
+                right: 56.0,
+                bottom: 48.0,
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    return ClipRRect(
                       borderRadius: BorderRadius.circular(4.0),
                       child: SizedBox(
                         height: 7.0,
@@ -158,12 +164,10 @@ class _SplashScreenState extends State<SplashScreen>
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-
-              const Spacer(flex: 1),
             ],
           ),
         ),
