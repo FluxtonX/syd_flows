@@ -20,23 +20,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   bool _isRequestingSubscription = false;
   String _bannerMessage = '';
   Timer? _bannerTimer;
-  StreamSubscription<bool>? _premiumAccessSubscription;
-
-  @override
-  void initState() {
-    super.initState();
-    _premiumAccessSubscription = SubscriptionService.instance
-        .streamHasPremiumAccess()
-        .distinct()
-        .listen((hasPremiumAccess) {
-          if (!hasPremiumAccess || !mounted) return;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && Navigator.of(context).canPop()) {
-              Navigator.of(context).pop(true);
-            }
-          });
-        });
-  }
 
   void _showBanner(String message) {
     setState(() {
@@ -49,15 +32,20 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     });
   }
 
-  Future<void> _requestSubscription() async {
+  Future<void> _requestSubscription(List<SubscriptionPlanModel> plans) async {
     if (_isRequestingSubscription) return;
     setState(() => _isRequestingSubscription = true);
+    final selectedPlan = _selectedPlanIndex < plans.length
+        ? plans[_selectedPlanIndex]
+        : (plans.isNotEmpty ? plans.first : null);
+    final planId = selectedPlan?.id ?? (_selectedPlanIndex == 0 ? 'annual' : 'monthly');
+
     try {
       await SubscriptionService.instance.requestSubscription(
-        planId: _selectedPlanIndex == 0 ? 'annual' : 'monthly',
+        planId: planId,
       );
       if (mounted) {
-        _showBanner('Premium is now unlocked on this device.');
+        _showBanner('Subscription request submitted. Awaiting admin approval.');
       }
     } catch (error) {
       if (mounted) {
@@ -71,106 +59,175 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   @override
   void dispose() {
     _bannerTimer?.cancel();
-    _premiumAccessSubscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isAnnual = _selectedPlanIndex == 0;
     return GradientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: Stack(children: [
-            SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                _buildHeader(context),
-                const SizedBox(height: 28),
-                _buildHero(),
-                const SizedBox(height: 24),
-                _sectionLabel('WHAT YOU GET'),
-                const SizedBox(height: 10),
-                _buildBenefits(),
-                const SizedBox(height: 24),
-                _sectionLabel('CHOOSE YOUR PLAN'),
-                const SizedBox(height: 10),
-                _buildPlanCard(index: 0, title: 'Annual Plan', subtitle: r'First 7 days free, then $59.99/yr', price: r'$314.99', period: '/ month (billed annually)', detail: r'$59.99 charged annually', badge: 'BEST VALUE'),
-                const SizedBox(height: 12),
-                _buildPlanCard(index: 1, title: 'Monthly Plan', subtitle: 'Flexible, cancel anytime', price: r'$34.99', period: '/ month', detail: 'Billed monthly'),
-                const SizedBox(height: 20),
-                StreamBuilder<bool>(
-                  stream: SubscriptionService.instance.streamHasPremiumAccess(),
-                  builder: (context, snapshot) {
-                    final hasAccess = snapshot.data == true;
-                    return Column(children: [
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: hasAccess || _isRequestingSubscription ? null : _requestSubscription,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.wellnessBrown,
-                            foregroundColor: AppColors.white,
-                            disabledBackgroundColor: AppColors.wellnessBrown.withValues(alpha: 0.55),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          ),
-                          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            if (_isRequestingSubscription)
-                              const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.white,
+          child: StreamBuilder<UserSubscriptionStatus>(
+            stream: SubscriptionService.instance.streamUserSubscriptionStatus(),
+            builder: (context, statusSnapshot) {
+              final userStatus = statusSnapshot.data ?? UserSubscriptionStatus.inactive;
+
+              return StreamBuilder<SubscriptionPlansConfigModel>(
+                stream: SubscriptionService.instance.streamSubscriptionPlans(),
+                builder: (context, plansSnapshot) {
+                  final config = plansSnapshot.data ?? SubscriptionPlansConfigModel.defaults;
+                  final plans = config.plans.isNotEmpty ? config.plans : SubscriptionPlansConfigModel.defaults.plans;
+                  final safeSelectedIndex = _selectedPlanIndex < plans.length ? _selectedPlanIndex : 0;
+                  final activePlan = plans[safeSelectedIndex];
+                  final hasTrial = activePlan.trialDays > 0;
+
+                  return Stack(children: [
+                    SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        _buildHeader(context, isPremium: userStatus.isPremium),
+                        const SizedBox(height: 24),
+
+                        // If user is ALREADY APPROVED (Premium Member), show the VIP Unlocked View
+                        if (userStatus.isPremium) ...[
+                          _buildActivePremiumCard(userStatus),
+                          const SizedBox(height: 24),
+                          _sectionLabel('YOUR UNLOCKED PRIVILEGES'),
+                          const SizedBox(height: 10),
+                          _buildBenefits(isPremium: true),
+                          const SizedBox(height: 28),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                if (Navigator.of(context).canPop()) {
+                                  Navigator.of(context).pop(true);
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.wellnessBrown,
+                                foregroundColor: AppColors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              ),
+                              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                const Icon(Icons.play_circle_fill_rounded, size: 22, color: AppColors.wellnessPinkText),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Explore Workout Studio',
+                                  style: AppTextStyles.labelLarge.copyWith(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 15),
                                 ),
-                              )
-                            else
-                              Icon(hasAccess ? Icons.check_circle_rounded : Icons.lock_outline_rounded, size: 19),
-                            const SizedBox(width: 9),
-                            Text(
-                              _isRequestingSubscription
-                                  ? 'Preparing secure checkout…'
-                                  : hasAccess
-                                      ? 'Premium is active'
-                                      : isAnnual
-                                          ? 'Start 7-day free trial'
-                                          : 'Continue with monthly',
-                              style: AppTextStyles.labelLarge.copyWith(color: AppColors.white, fontWeight: FontWeight.w700),
+                              ]),
+                            ),
+                          ),
+                        ] else ...[
+                          // Normal Purchase / Subscription Flow
+                          _buildHero(config),
+                          const SizedBox(height: 24),
+
+                          // If user has a pending request, show glowing pending indicator
+                          if (userStatus.status == 'pending') ...[
+                            _buildPendingApprovalCard(),
+                            const SizedBox(height: 20),
+                          ],
+
+                          _sectionLabel('WHAT YOU GET'),
+                          const SizedBox(height: 10),
+                          _buildBenefits(isPremium: false),
+                          const SizedBox(height: 24),
+                          _sectionLabel('CHOOSE YOUR PLAN'),
+                          const SizedBox(height: 10),
+                          ...List.generate(plans.length, (index) {
+                            final plan = plans[index];
+                            return Padding(
+                              padding: EdgeInsets.only(bottom: index == plans.length - 1 ? 0 : 12),
+                              child: _buildPlanCard(
+                                index: index,
+                                title: plan.title,
+                                subtitle: plan.subtitle,
+                                price: plan.price,
+                                period: plan.period,
+                                detail: plan.detail,
+                                badge: plan.badge.isNotEmpty ? plan.badge : null,
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 20),
+
+                          Column(children: [
+                            SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: ElevatedButton(
+                                onPressed: userStatus.status == 'pending' || _isRequestingSubscription
+                                    ? null
+                                    : () => _requestSubscription(plans),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.wellnessBrown,
+                                  foregroundColor: AppColors.white,
+                                  disabledBackgroundColor: AppColors.wellnessBrown.withValues(alpha: 0.55),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                ),
+                                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                  if (_isRequestingSubscription)
+                                    const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.white,
+                                      ),
+                                    )
+                                  else
+                                    Icon(userStatus.status == 'pending' ? Icons.hourglass_top_rounded : Icons.lock_outline_rounded, size: 19),
+                                  const SizedBox(width: 9),
+                                  Text(
+                                    _isRequestingSubscription
+                                        ? 'Submitting request…'
+                                        : userStatus.status == 'pending'
+                                            ? 'Request Submitted (Pending Approval)'
+                                            : hasTrial
+                                                ? 'Start ${activePlan.trialDays}-day free trial'
+                                                : 'Continue with ${activePlan.title}',
+                                    style: AppTextStyles.labelLarge.copyWith(color: AppColors.white, fontWeight: FontWeight.w700),
+                                  ),
+                                ]),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: () => _showBanner('Your purchases will be restored after verification.'),
+                              child: Text('Restore purchase', style: AppTextStyles.labelMedium.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w700)),
                             ),
                           ]),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: () => _showBanner('Your purchases will be restored after verification.'),
-                        child: Text('Restore purchase', style: AppTextStyles.labelMedium.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w700)),
-                      ),
-                    ]);
-                  },
-                ),
-                Text(
-                  'Cancel anytime. Payment is processed securely. By continuing, you agree to our Terms of Service.',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.58), height: 1.45),
-                ),
-              ]),
-            ),
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic,
-              top: _showSuccessBanner ? 14 : -100, left: 16, right: 16,
-              child: Center(child: AppSuccessBanner(message: _bannerMessage)),
-            ),
-          ]),
+                          Text(
+                            'Cancel anytime. Request is verified by administrator. By continuing, you agree to our Terms of Service.',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.58), height: 1.45),
+                          ),
+                        ],
+                      ]),
+                    ),
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic,
+                      top: _showSuccessBanner ? 14 : -100, left: 16, right: 16,
+                      child: Center(child: AppSuccessBanner(message: _bannerMessage)),
+                    ),
+                  ]);
+                },
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) => Row(children: [
+  Widget _buildHeader(BuildContext context, {required bool isPremium}) => Row(children: [
     Material(
       color: AppColors.white.withValues(alpha: 0.82), borderRadius: BorderRadius.circular(14),
       child: InkWell(
@@ -180,12 +237,155 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     ),
     const SizedBox(width: 14),
     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('SYD FLOWS PREMIUM', style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessPinkText, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
-      Text('Upgrade your flow', style: AppTextStyles.titleLarge.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w700)),
+      Text(
+        isPremium ? 'VIP MEMBERSHIP' : 'SYD FLOWS PREMIUM',
+        style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessPinkText, fontWeight: FontWeight.w800, letterSpacing: 1.1),
+      ),
+      Text(
+        isPremium ? 'Premium Active' : 'Upgrade your flow',
+        style: AppTextStyles.titleLarge.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w700),
+      ),
     ]),
   ]);
 
-  Widget _buildHero() => Container(
+  Widget _buildActivePremiumCard(UserSubscriptionStatus status) => Container(
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFF8FA), Color(0xFFFBD4E1)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: AppColors.wellnessPinkBorder, width: 1.5),
+      boxShadow: [
+        BoxShadow(
+          color: AppColors.wellnessBrown.withValues(alpha: 0.08),
+          blurRadius: 22,
+          offset: const Offset(0, 10),
+        ),
+      ],
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: AppColors.white.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: AppColors.wellnessPinkBorder),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.stars_rounded, color: AppColors.wellnessPinkText, size: 15),
+            const SizedBox(width: 5),
+            Text(
+              'ACTIVE MEMBER',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.wellnessPinkText,
+                fontWeight: FontWeight.w800,
+                fontSize: 10,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ]),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: const Color(0xFFECFDF5),
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF059669), shape: BoxShape.circle)),
+            const SizedBox(width: 6),
+            const Text(
+              'UNLOCKED',
+              style: TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 0.5),
+            ),
+          ]),
+        ),
+      ]),
+      const SizedBox(height: 18),
+      Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+              'You have full VIP Access',
+              style: AppTextStyles.headlineSmall.copyWith(
+                color: AppColors.wellnessBrown,
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'All paid workout studios, cycle phase guides, and tailored programs are fully unlocked for your account.',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.wellnessBrown.withValues(alpha: 0.75),
+                height: 1.45,
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(width: 12),
+        SvgPicture.asset(AppAssets.premiumBadge, width: 68, height: 68),
+      ]),
+      const SizedBox(height: 16),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: AppColors.white.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.wellnessPinkBorder.withValues(alpha: 0.6)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.verified_rounded, color: AppColors.wellnessPinkText, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            'Plan: ${status.planTitle}',
+            style: AppTextStyles.labelMedium.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w800),
+          ),
+        ]),
+      ),
+    ]),
+  );
+
+  Widget _buildPendingApprovalCard() => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFFBEB),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+    ),
+    child: Row(children: [
+      Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 20),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text(
+            'Request Submitted (Pending Approval)',
+            style: TextStyle(color: Color(0xFF92400E), fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Your subscription request has been received. Features unlock automatically once verified!',
+            style: TextStyle(color: const Color(0xFFB45309).withValues(alpha: 0.85), fontSize: 11, height: 1.35),
+          ),
+        ]),
+      ),
+    ]),
+  );
+
+  Widget _buildHero(SubscriptionPlansConfigModel config) => Container(
     padding: const EdgeInsets.all(22),
     decoration: BoxDecoration(
       gradient: const LinearGradient(colors: [Color(0xFFFFF8FA), Color(0xFFFBD4E1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
@@ -197,12 +397,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
           decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.72), borderRadius: BorderRadius.circular(99)),
-          child: Text('PERSONALISED WELLNESS', style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessPinkText, fontWeight: FontWeight.w800, fontSize: 9.5, letterSpacing: 0.8)),
+          child: Text(
+            config.heroTagline.isNotEmpty ? config.heroTagline : 'PERSONALISED WELLNESS',
+            style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessPinkText, fontWeight: FontWeight.w800, fontSize: 9.5, letterSpacing: 0.8),
+          ),
         ),
         const SizedBox(height: 13),
-        Text('Feel supported\nin every phase.', style: AppTextStyles.headlineSmall.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w800, height: 1.12)),
+        Text(
+          config.heroTitle.isNotEmpty ? config.heroTitle : 'Feel supported\nin every phase.',
+          style: AppTextStyles.headlineSmall.copyWith(color: AppColors.wellnessBrown, fontWeight: FontWeight.w800, height: 1.12),
+        ),
         const SizedBox(height: 8),
-        Text('Unlock the complete workout library and deeper cycle guidance.', style: AppTextStyles.bodySmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.72), height: 1.45)),
+        Text(
+          config.heroSubtitle.isNotEmpty ? config.heroSubtitle : 'Unlock the complete workout library and deeper cycle guidance.',
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.72), height: 1.45),
+        ),
       ])),
       const SizedBox(width: 12),
       SvgPicture.asset(AppAssets.premiumBadge, width: 72, height: 72),
@@ -211,15 +420,27 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Widget _sectionLabel(String label) => Text(label, style: AppTextStyles.labelSmall.copyWith(color: AppColors.wellnessBrown.withValues(alpha: 0.58), fontWeight: FontWeight.w800, letterSpacing: 1));
 
-  Widget _buildBenefits() => Container(
+  Widget _buildBenefits({required bool isPremium}) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.84), borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.wellnessBrown.withValues(alpha: 0.08))),
-    child: const Column(children: [
-      _BenefitRow(icon: Icons.lock_open_rounded, title: 'Every premium workout', detail: 'Move with the full studio library, whenever you need it.'),
-      Divider(height: 24),
-      _BenefitRow(icon: Icons.insights_rounded, title: 'Deeper cycle insights', detail: 'Understand patterns and plan your movement with confidence.'),
-      Divider(height: 24),
-      _BenefitRow(icon: Icons.favorite_outline_rounded, title: 'Made for your rhythm', detail: 'Supportive content for each stage of your cycle.'),
+    child: Column(children: [
+      _BenefitRow(
+        icon: isPremium ? Icons.check_circle_rounded : Icons.lock_open_rounded,
+        title: 'Every premium workout',
+        detail: 'Move with the full studio library, whenever you need it.',
+      ),
+      const Divider(height: 24),
+      _BenefitRow(
+        icon: isPremium ? Icons.check_circle_rounded : Icons.insights_rounded,
+        title: 'Deeper cycle insights',
+        detail: 'Understand patterns and plan your movement with confidence.',
+      ),
+      const Divider(height: 24),
+      _BenefitRow(
+        icon: isPremium ? Icons.check_circle_rounded : Icons.favorite_outline_rounded,
+        title: 'Made for your rhythm',
+        detail: 'Supportive content for each stage of your cycle.',
+      ),
     ]),
   );
 

@@ -222,6 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
         final allWorkouts = docs
+            .where((doc) => !doc.id.startsWith('_settings'))
             .map((doc) => Workout.fromFirestore(doc.data(), doc.id))
             .toList();
 
