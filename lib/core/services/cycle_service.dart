@@ -51,14 +51,39 @@ class CycleService {
         'Saved cycle log to Firestore for dateKey: $dateKey (User: $uid)',
       );
 
-      // When a period start is confirmed, also write to the periods subcollection
+      // When a period start is confirmed, also write to the periods subcollection.
+      // When unselected (isPeriodStart is false), delete the record from periods subcollection.
       if (isPeriodStart) {
         final periodDate = DateTime.tryParse(dateKey) ?? DateTime.now();
         await savePeriodRecord(uid: uid, startDate: periodDate);
+      } else {
+        await deletePeriodRecord(uid: uid, dateKey: dateKey);
       }
     } catch (e) {
       Helpers.log('Error saving cycle log to Firestore: $e');
       rethrow;
+    }
+  }
+
+  /// Delete a confirmed period record from the periods subcollection.
+  ///
+  /// Firestore path: users/{uid}/periods/{dateKey}
+  Future<void> deletePeriodRecord({
+    required String uid,
+    required String dateKey,
+  }) async {
+    try {
+      final docRef = _db
+          .collection('users')
+          .doc(uid)
+          .collection('periods')
+          .doc(dateKey);
+
+      await docRef.delete();
+      Helpers.log('Deleted period record for dateKey: $dateKey (User: $uid)');
+    } catch (e) {
+      Helpers.log('Error deleting period record: $e');
+      // Non-fatal
     }
   }
 

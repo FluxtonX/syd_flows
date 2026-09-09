@@ -9,6 +9,8 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   VIDEOS: '/videos',
   UPLOAD: '/upload',
+  SUBSCRIPTIONS: '/subscriptions',
+  SUBSCRIBER_REQUESTS: '/subscriber-requests',
 } as const;
 
 /** Workout category options - strictly Yoga, Pilates, Strength, Mobility */
@@ -66,7 +68,41 @@ export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'im
 /** Firestore collection names */
 export const FIRESTORE_COLLECTIONS = {
   VIDEOS: 'videos',
+  SETTINGS: 'app_settings',
+  SUBSCRIPTION_PLANS: 'subscription_plans',
+  USERS: 'users',
 } as const;
+
+/** Default Subscription Plans Configuration */
+export const DEFAULT_SUBSCRIPTION_CONFIG = {
+  heroTagline: 'PERSONALISED WELLNESS',
+  heroTitle: 'Feel supported\nin every phase.',
+  heroSubtitle: 'Unlock the complete workout library and deeper cycle guidance.',
+  plans: [
+    {
+      id: 'annual',
+      title: 'Annual Plan',
+      badge: 'BEST VALUE',
+      subtitle: 'First 7 days free, then $59.99/yr',
+      price: '$4.99',
+      period: '/ month (billed annually)',
+      detail: '$59.99 charged annually',
+      trialDays: 7,
+      enabled: true,
+    },
+    {
+      id: 'monthly',
+      title: 'Monthly Plan',
+      badge: '',
+      subtitle: 'Flexible, cancel anytime',
+      price: '$9.99',
+      period: '/ month',
+      detail: 'Billed monthly',
+      trialDays: 0,
+      enabled: true,
+    },
+  ],
+};
 
 /** Symptom-friendly options for multi-select */
 export const SYMPTOM_OPTIONS = [

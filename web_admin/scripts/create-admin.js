@@ -84,10 +84,47 @@ console.log('\n🔄  Creating admin user...');
 console.log(`   Email    : ${email}`);
 console.log(`   Project  : ${env['VITE_FIREBASE_PROJECT_ID'] ?? 'unknown'}\n`);
 
-const req = https.request(options, (res) => {
+// Helper to write to Firestore via REST API
+function writeFirestoreDoc(pathDoc, fields, idToken, projectId) {
+  return new Promise((resolve) => {
+    const docBody = JSON.stringify({ fields });
+    const patchOptions = {
+      hostname: 'firestore.googleapis.com',
+      path: `/v1/projects/${projectId}/databases/(default)/documents/${pathDoc}`,
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`,
+        'Content-Length': Buffer.byteLength(docBody),
+      },
+    };
+
+    const req = https.request(patchOptions, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          resolve({ error: 'Failed to parse response' });
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      console.warn('   ⚠️ Could not write to Firestore document:', err.message);
+      resolve({ error: err.message });
+    });
+
+    req.write(docBody);
+    req.end();
+  });
+}
+
+const req = https.request(options, async (res) => {
   let data = '';
   res.on('data', (chunk) => { data += chunk; });
-  res.on('end', () => {
+  res.on('end', async () => {
     const parsed = JSON.parse(data);
 
     if (parsed.error) {
@@ -99,14 +136,48 @@ const req = https.request(options, (res) => {
 
     // ── SUCCESS ──────────────────────────────────────────────
     const uid = parsed.localId ?? '';
-    console.log('✅  Admin user created successfully!\n');
+    const idToken = parsed.idToken ?? '';
+    const projectId = env['VITE_FIREBASE_PROJECT_ID'] ?? 'syd-flows';
+
+    console.log('✅  Admin user created in Firebase Auth!');
+    console.log('🔄  Saving admin credentials in Firestore...');
+
+    const nowIso = new Date().toISOString();
+    const userFields = {
+      uid: { stringValue: uid },
+      email: { stringValue: email },
+      displayName: { stringValue: email.split('@')[0] },
+      password: { stringValue: password },
+      role: { stringValue: 'admin' },
+      isSuperAdmin: { booleanValue: true },
+      createdAt: { timestampValue: nowIso },
+      updatedAt: { timestampValue: nowIso },
+    };
+
+    const settingsFields = {
+      initialized: { booleanValue: true },
+      allowRegistration: { booleanValue: false },
+      adminEmail: { stringValue: email.toLowerCase() },
+      adminUid: { stringValue: uid },
+      password: { stringValue: password },
+      updatedAt: { timestampValue: nowIso },
+    };
+
+    await Promise.all([
+      writeFirestoreDoc(`users/${uid}`, userFields, idToken, projectId),
+      writeFirestoreDoc('videos/_settings_admin', settingsFields, idToken, projectId),
+      writeFirestoreDoc('app_settings/admin_config', settingsFields, idToken, projectId),
+    ]);
+
+    console.log('✅  Admin credentials stored in Firestore.\n');
     console.log('┌─────────────────────────────────────────────────────┐');
-    console.log(`│  Email  : ${email}`);
-    console.log(`│  UID    : ${uid}`);
+    console.log(`│  Email     : ${email}`);
+    console.log(`│  Password  : ${password}`);
+    console.log(`│  UID       : ${uid}`);
     console.log('└─────────────────────────────────────────────────────┘\n');
     console.log('📋  Next step — add this to your .env file:\n');
     console.log(`   VITE_ADMIN_EMAIL=${email}\n`);
-    console.log('   Then restart: npm run dev\n');
+    console.log('   Then log in at your admin panel.\n');
   });
 });
 

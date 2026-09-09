@@ -1,3 +1,5 @@
+/* oxlint-disable react/only-export-components */
+/* eslint-disable react-refresh/only-export-components */
 /* ─────────────────────────────────────────────────────────────
    Theme Context & Hook
    Manages Light / Dark theme switching with localStorage persistence

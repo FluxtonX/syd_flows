@@ -138,14 +138,66 @@ try {
     process.exit(1);
   }
 
+  // ── 5. Step 3: Update password in Firestore ──────────────────
+  const uid = signInResult.localId;
+  const projectId = env['VITE_FIREBASE_PROJECT_ID'] ?? 'syd-flows';
+  const nowIso = new Date().toISOString();
+
+  function writeFirestoreDoc(pathDoc, fields) {
+    return new Promise((resolve) => {
+      const docBody = JSON.stringify({ fields });
+      const patchOptions = {
+        hostname: 'firestore.googleapis.com',
+        path: `/v1/projects/${projectId}/databases/(default)/documents/${pathDoc}`,
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Length': Buffer.byteLength(docBody),
+        },
+      };
+
+      const req = https.request(patchOptions, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            resolve({ error: 'Failed to parse' });
+          }
+        });
+      });
+
+      req.on('error', () => resolve({ error: 'Network error' }));
+      req.write(docBody);
+      req.end();
+    });
+  }
+
+  await Promise.allSettled([
+    writeFirestoreDoc(`users/${uid}`, {
+      password: { stringValue: newPass },
+      updatedAt: { timestampValue: nowIso },
+    }),
+    writeFirestoreDoc('videos/_settings_admin', {
+      password: { stringValue: newPass },
+      updatedAt: { timestampValue: nowIso },
+    }),
+    writeFirestoreDoc('app_settings/admin_config', {
+      password: { stringValue: newPass },
+      updatedAt: { timestampValue: nowIso },
+    }),
+  ]);
+
   // ── SUCCESS ─────────────────────────────────────────────────
-  console.log('✅  Admin password changed successfully!\n');
+  console.log('✅  Admin password changed in Firebase Auth and Firestore!\n');
   console.log('┌─────────────────────────────────────────────────────┐');
   console.log(`│  Email        : ${ADMIN_EMAIL}`);
   console.log(`│  New Password : ${'*'.repeat(newPass.length)}`);
   console.log('└─────────────────────────────────────────────────────┘\n');
-  console.log('   All existing sessions have been invalidated.');
-  console.log('   Log in again at http://localhost:5173/login\n');
+  console.log('   All existing sessions have been updated.');
+  console.log('   Log in with your new password at your admin portal.\n');
 
 } catch (err) {
   console.error('\n❌  Network error:', err.message);

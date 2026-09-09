@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -82,15 +81,11 @@ class ProgressScreen extends StatelessWidget {
                     _buildActivityCard(workouts),
                     AppSpacing.h24,
 
-                    // 4. Cycle Insights Card
-                    _buildCycleInsightsCard(),
-                    AppSpacing.h24,
-
-                    // 5. Favorites Section
+                    // 4. Favorites Section
                     _buildFavoritesSection(uid),
                     AppSpacing.h24,
 
-                    // 6. Achievements Section
+                    // 5. Achievements Section
                     _buildAchievementsSection(),
                   ],
                 ),
@@ -400,129 +395,6 @@ class ProgressScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCycleInsightsCard() {
-    return Container(
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(24.0),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.wellnessBrown.withValues(alpha: 0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Cycle insights',
-            style: AppTextStyles.titleMedium.copyWith(
-              color: AppColors.wellnessBrown,
-              fontWeight: FontWeight.bold,
-              fontSize: 18.0,
-            ),
-          ),
-          const SizedBox(height: 4.0),
-          Text(
-            'Where your energy lands across phases.',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.wellnessGray,
-              fontSize: 13.0,
-            ),
-          ),
-          AppSpacing.h24,
-
-          // Multi-ring circle chart centered
-          Center(
-            child: SizedBox(
-              width: 170.0,
-              height: 170.0,
-              child: CustomPaint(painter: ConcentricRingsPainter()),
-            ),
-          ),
-          AppSpacing.h24,
-
-          // 2x2 Grid of details (Exact Figma Mockup Colors & Styling)
-          Row(
-            children: [
-              Expanded(
-                child: _buildPhaseSessionCard(
-                  'MENSTRUAL',
-                  '4 sessions',
-                  AppColors.phaseMenstrual,
-                ),
-              ),
-              const SizedBox(width: 12.0),
-              Expanded(
-                child: _buildPhaseSessionCard(
-                  'FOLLICULAR',
-                  '9 sessions',
-                  AppColors.phaseFollicular,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12.0),
-          Row(
-            children: [
-              Expanded(
-                child: _buildPhaseSessionCard(
-                  'OVULATION',
-                  '6 sessions',
-                  AppColors.phaseOvulation,
-                ),
-              ),
-              const SizedBox(width: 12.0),
-              Expanded(
-                child: _buildPhaseSessionCard(
-                  'LUTEAL',
-                  '7 sessions',
-                  AppColors.phaseLuteal,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPhaseSessionCard(String title, String value, Color bg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(16.0),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: AppTextStyles.labelSmall.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
-              fontWeight: FontWeight.bold,
-              fontSize: 10.0,
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 4.0),
-          Text(
-            value,
-            style: AppTextStyles.titleMedium.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16.0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildFavoritesSection(String uid) {
     return StreamBuilder<List<Workout>>(
       stream: uid.isNotEmpty
@@ -567,8 +439,8 @@ class ProgressScreen extends StatelessWidget {
                 final cover = fav.imagePath.isNotEmpty
                     ? fav.imagePath
                     : (fav.videoId != null && fav.videoId!.isNotEmpty
-                        ? 'https://img.youtube.com/vi/${fav.videoId}/hqdefault.jpg'
-                        : 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=600&auto=format&fit=crop');
+                          ? 'https://img.youtube.com/vi/${fav.videoId}/hqdefault.jpg'
+                          : 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=600&auto=format&fit=crop');
 
                 return GestureDetector(
                   onTap: () {
@@ -838,77 +710,4 @@ class ProgressScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-class ConcentricRingsPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final configs = [
-      _RingConfig(
-        radius: 70.0,
-        color: AppColors.phaseFollicular, // Follicular (Outer ring)
-        sweepAngle: 280.0,
-        strokeWidth: 8.0,
-      ),
-      _RingConfig(
-        radius: 58.0,
-        color: AppColors.phaseLuteal, // Luteal
-        sweepAngle: 230.0,
-        strokeWidth: 8.0,
-      ),
-      _RingConfig(
-        radius: 46.0,
-        color: AppColors.phaseOvulation, // Ovulation
-        sweepAngle: 170.0,
-        strokeWidth: 8.0,
-      ),
-      _RingConfig(
-        radius: 34.0,
-        color: AppColors.phaseMenstrual, // Menstrual (Inner ring)
-        sweepAngle: 210.0,
-        strokeWidth: 8.0,
-      ),
-    ];
-
-    for (var conf in configs) {
-      // Draw background track
-      paint.color = conf.color.withValues(alpha: 0.15);
-      paint.strokeWidth = conf.strokeWidth;
-      canvas.drawCircle(center, conf.radius, paint);
-
-      // Draw active arc
-      paint.color = conf.color;
-      final startAngle = -math.pi / 2;
-      final sweepAngleRad = conf.sweepAngle * math.pi / 180;
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: conf.radius),
-        startAngle,
-        sweepAngleRad,
-        false,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _RingConfig {
-  final double radius;
-  final Color color;
-  final double sweepAngle;
-  final double strokeWidth;
-
-  _RingConfig({
-    required this.radius,
-    required this.color,
-    required this.sweepAngle,
-    required this.strokeWidth,
-  });
 }

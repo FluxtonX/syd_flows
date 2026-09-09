@@ -9,27 +9,17 @@ import '../data/models/cycle_types.dart';
 ///
 /// All cycle math lives here. UI and services consume the result.
 ///
-/// CLUE-STYLE ALGORITHM:
-///   - Phase is driven by ACTUAL logged flow, not a fixed periodLength.
-///   - Menstrual phase = only days with a non-null/non-empty flow entry.
-///   - Once flow logging stops, the next day immediately becomes Follicular.
-///   - For days with no log yet (future within current cycle), if bleeding has
-///     ended in this cycle, remaining days continue as Follicular/Ovulation/Luteal.
-///   - For purely predicted future cycles, the adaptive average period length is
-///     used to shade predicted Menstrual days.
+/// Cycle Phase Progression:
+///   1. Menstrual: Days 1 to periodLength (typically Days 1..5)
+///   2. Follicular: Days (periodLength + 1) to (ovulationDay - 2) (typically Days 6..12)
+///   3. Ovulation: Days (ovulationDay - 1) to (ovulationDay + 1) (typically Days 13..15)
+///   4. Luteal: Days (ovulationDay + 2) to cycleLength (typically Days 16..28)
 class CycleCalculator {
   CycleCalculator._();
 
   // ── Public entry point ───────────────────────────────────────────────────
 
   /// Computes the current [CycleStatus] for [today] based on [settings].
-  ///
-  /// [confirmedPeriodStart] overrides [settings.lastPeriodStart] when a more
-  /// recent confirmed period start is known.
-  ///
-  /// [allLogs] is the full map of `dateKey -> DayJournal` from Firestore.
-  /// When provided, the actual number of bleeding days in the current cycle
-  /// is used to determine the effective period length for phase computation.
   static CycleStatus compute({
     required CycleSettings settings,
     required DateTime today,
@@ -50,8 +40,6 @@ class CycleCalculator {
     final int cycleDay = (rawDiff % settings.cycleLength) + 1;
 
     // Determine effective period length for current cycle.
-    // If actual flow entries exist: use the actual bleeding day count.
-    // Otherwise fall back to user's setting.
     final int effectivePeriodLength = _effectivePeriodLengthForCycle(
       cycleAnchor: anchorNorm,
       cycleLength: settings.cycleLength,
@@ -99,16 +87,16 @@ class CycleCalculator {
     required int cycleLength,
     required int periodLength,
   }) {
-    final int safePeriodLength = periodLength.clamp(1, 15);
+    final int safePeriodLength = periodLength.clamp(2, 10);
     final int safeCycleLength = cycleLength.clamp(safePeriodLength + 5, 60);
 
-    final int minOvulationDay = safePeriodLength + 2;
-    final int maxOvulationDay = safeCycleLength - 1;
+    final int minOvulationDay = safePeriodLength + 3;
+    final int maxOvulationDay = safeCycleLength - 2;
     final int rawOvulationDay = safeCycleLength - 14;
 
     final int ovulationDay = (minOvulationDay <= maxOvulationDay)
         ? rawOvulationDay.clamp(minOvulationDay, maxOvulationDay)
-        : safePeriodLength + 2;
+        : safePeriodLength + 3;
 
     final int follicularStart = safePeriodLength + 1;
     final int follicularEnd = ovulationDay - 2;
@@ -135,7 +123,7 @@ class CycleCalculator {
     required int cycleLength,
     required int periodLength,
   }) {
-    final int safePeriodLength = periodLength.clamp(1, 15);
+    final int safePeriodLength = periodLength.clamp(2, 10);
     final int safeCycleLength = cycleLength.clamp(safePeriodLength + 5, 60);
 
     final int daysUntilNextCycle = safeCycleLength - (cycleDay - 1);
@@ -143,18 +131,16 @@ class CycleCalculator {
       Duration(days: daysUntilNextCycle),
     );
 
-    final int minOvulationDay = safePeriodLength + 2;
-    final int maxOvulationDay = safeCycleLength - 1;
+    final int minOvulationDay = safePeriodLength + 3;
+    final int maxOvulationDay = safeCycleLength - 2;
     final int rawOvulationDay = safeCycleLength - 14;
 
     final int ovulationDayNum = (minOvulationDay <= maxOvulationDay)
         ? rawOvulationDay.clamp(minOvulationDay, maxOvulationDay)
-        : safePeriodLength + 2;
+        : safePeriodLength + 3;
 
-    final DateTime anchorOfCurrentCycle = anchor.add(
-      Duration(days: -(cycleDay - 1)),
-    );
-    final DateTime ovulationDate = anchorOfCurrentCycle.add(
+    // anchor is already the start of the current cycle (Day 1)
+    final DateTime ovulationDate = anchor.add(
       Duration(days: ovulationDayNum - 1),
     );
     final DateTime fertileWindowStart = ovulationDate.subtract(
@@ -191,16 +177,9 @@ class CycleCalculator {
     );
   }
 
-  // ── Clue-Style: Effective Period Length ──────────────────────────────────
+  // ── Effective Period Length ──────────────────────────────────────────────
 
   /// Computes the effective period length for the current/active cycle.
-  ///
-  /// CLUE BEHAVIOUR:
-  ///   - Count days within the cycle window [cycleAnchor, cycleAnchor+cycleLength)
-  ///     that have a non-empty flow entry in [allLogs].
-  ///   - Once bleeding has ended (last flow day is before today), the effective
-  ///     period length is locked to actual bleeding day count.
-  ///   - If no flow logged, returns [fallback].
   static int _effectivePeriodLengthForCycle({
     required DateTime cycleAnchor,
     required int cycleLength,
@@ -208,7 +187,7 @@ class CycleCalculator {
     Map<String, DayJournal>? allLogs,
     required int fallback,
   }) {
-    if (allLogs == null || allLogs.isEmpty) return fallback;
+    if (allLogs == null || allLogs.isEmpty) return fallback.clamp(2, 10);
 
     final DateTime cycleEnd = cycleAnchor.add(Duration(days: cycleLength));
 
@@ -230,17 +209,20 @@ class CycleCalculator {
       }
     }
 
-    if (bleedingDays == 0) return fallback;
-    return bleedingDays.clamp(1, 15);
+    if (bleedingDays == 0) return fallback.clamp(2, 10);
+
+    // If today is within the active initial period window, do not prematurely truncate
+    final int daysSinceStart = today.difference(cycleAnchor).inDays;
+    if (daysSinceStart < fallback && bleedingDays <= fallback) {
+      return fallback.clamp(2, 10);
+    }
+
+    return bleedingDays.clamp(2, 10);
   }
 
   // ── Adaptive Period Length ───────────────────────────────────────────────
 
   /// Calculates rolling average period length from completed historical cycles.
-  ///
-  /// For each completed cycle, count days with a flow entry in [allLogs].
-  /// Returns [fallbackLength] if no completed cycle data is available.
-  /// Output is clamped to [2, 10].
   static int computeAdaptivePeriodLength({
     required List<DateTime> confirmedStarts,
     required Map<String, DayJournal> allLogs,
@@ -319,9 +301,6 @@ class CycleCalculator {
   // ── Adaptive Cycle Length ────────────────────────────────────────────────
 
   /// Calculates rolling average cycle length based on confirmed period records.
-  ///
-  /// Returns [fallbackLength] if fewer than 2 cycle intervals exist.
-  /// Output is clamped to a realistic biological window [21, 45].
   static int computeAdaptiveCycleLength({
     required List<DateTime> confirmedStarts,
     required int fallbackLength,
@@ -351,14 +330,6 @@ class CycleCalculator {
   // ── Calendar helpers ─────────────────────────────────────────────────────
 
   /// Returns the [CyclePhase] for any arbitrary calendar [date].
-  ///
-  /// CLUE-STYLE RULES (priority order):
-  ///   1. If [date] has an actual flow entry in [allLogs] -> MENSTRUAL (hard rule).
-  ///   2. If [date] falls in a known historical/current cycle window:
-  ///      - Use actual bleeding day count as effectivePeriodLength.
-  ///      - For future days in the LATEST cycle: use adaptivePeriodLength for
-  ///        predicted next period shading.
-  ///   3. Fallback: math-only phase using anchor and periodLength.
   static CyclePhase phaseForDate({
     required DateTime date,
     required DateTime anchor,
@@ -369,10 +340,8 @@ class CycleCalculator {
     int? adaptivePeriodLength,
   }) {
     final DateTime dateNorm = _dateOnly(date);
-    final DateTime todayNorm = _dateOnly(DateTime.now());
 
     // ── Priority 1: Direct flow-log check ───────────────────────────────
-    // If date has an actual flow entry it IS menstrual, regardless of anything.
     if (allLogs != null) {
       final y = dateNorm.year.toString();
       final m = dateNorm.month.toString().padLeft(2, '0');
@@ -401,28 +370,7 @@ class CycleCalculator {
               ? rawCycleLen
               : cycleLength;
 
-          // Clamp today to todayNorm when computing for future dates in current cycle
-          final DateTime logCutoff = dateNorm.isAfter(todayNorm)
-              ? todayNorm
-              : dateNorm;
-
-          // Count actual bleeding days in this cycle up to logCutoff
-          final int effPeriodLen = _effectivePeriodLengthForCycle(
-            cycleAnchor: cycleStart,
-            cycleLength: effectiveLen,
-            today: logCutoff,
-            allLogs: allLogs,
-            fallback: adaptivePeriodLength ?? periodLength,
-          );
-
-          // For future predicted days in the LATEST cycle window, use adaptive
-          // period length so predicted next period gets correct shading
-          final bool isLatestCycle = i == sorted.length - 1;
-          final bool isFutureDay = dateNorm.isAfter(todayNorm);
-          final int periodLenToUse =
-              (isLatestCycle && isFutureDay && effPeriodLen == 0)
-              ? (adaptivePeriodLength ?? periodLength)
-              : effPeriodLen;
+          final int periodLenToUse = adaptivePeriodLength ?? periodLength;
 
           final int cycleDay = dateNorm.difference(cycleStart).inDays + 1;
           return _computePhase(

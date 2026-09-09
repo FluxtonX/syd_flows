@@ -71,11 +71,7 @@ class _CycleScreenState extends State<CycleScreen> {
 
   /// Returns the phase for [day] in the current calendar month using CycleCalculator.
   CyclePhase _getDayPhase(int day) {
-    final date = DateTime(
-      _viewModel.currentYear,
-      _viewModel.currentMonth,
-      day,
-    );
+    final date = DateTime(_viewModel.currentYear, _viewModel.currentMonth, day);
     final cycleNotifier = CycleProvider.ofNullable(context);
     if (cycleNotifier != null) {
       return cycleNotifier.phaseForCalendarDate(date);
@@ -261,10 +257,8 @@ class _CycleScreenState extends State<CycleScreen> {
           top: Radius.circular(AppRadius.xxl),
         ),
       ),
-      builder: (context) => _LogTodayBottomSheet(
-        initialJournal: initialJournal,
-        title: title,
-      ),
+      builder: (context) =>
+          _LogTodayBottomSheet(initialJournal: initialJournal, title: title),
     );
 
     if (result != null) {
@@ -396,7 +390,9 @@ class _CycleScreenState extends State<CycleScreen> {
                         width: 36.0,
                         height: 4.0,
                         decoration: BoxDecoration(
-                          color: AppColors.wellnessBrown.withValues(alpha: 0.15),
+                          color: AppColors.wellnessBrown.withValues(
+                            alpha: 0.15,
+                          ),
                           borderRadius: BorderRadius.circular(2.0),
                         ),
                       ),
@@ -409,7 +405,9 @@ class _CycleScreenState extends State<CycleScreen> {
                         Container(
                           padding: const EdgeInsets.all(10.0),
                           decoration: BoxDecoration(
-                            color: AppColors.wellnessBrown.withValues(alpha: 0.08),
+                            color: AppColors.wellnessBrown.withValues(
+                              alpha: 0.08,
+                            ),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -473,13 +471,17 @@ class _CycleScreenState extends State<CycleScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppColors.wellnessBrown.withValues(alpha: 0.06)
+                                ? AppColors.wellnessBrown.withValues(
+                                    alpha: 0.06,
+                                  )
                                 : AppColors.white,
                             borderRadius: AppRadius.r16,
                             border: Border.all(
                               color: isSelected
                                   ? AppColors.wellnessBrown
-                                  : AppColors.wellnessBeige.withValues(alpha: 0.3),
+                                  : AppColors.wellnessBeige.withValues(
+                                      alpha: 0.3,
+                                    ),
                               width: isSelected ? 1.8 : 1.0,
                             ),
                           ),
@@ -531,7 +533,8 @@ class _CycleScreenState extends State<CycleScreen> {
                         onPressed: isExporting
                             ? null
                             : () async {
-                                final uid = AuthService.instance.currentUser?.uid;
+                                final uid =
+                                    AuthService.instance.currentUser?.uid;
                                 if (uid == null) {
                                   Navigator.pop(context);
                                   return;
@@ -540,30 +543,37 @@ class _CycleScreenState extends State<CycleScreen> {
                                 setModalState(() => isExporting = true);
 
                                 try {
-                                  final notifier = CycleProvider.of(this.context);
-                                  final result =
-                                      await ExportService.instance.exportCycleLogsCsv(
-                                    uid: uid,
-                                    settings: notifier.settings,
-                                    range: selectedRange,
-                                    shareFile: true,
+                                  final notifier = CycleProvider.of(
+                                    this.context,
                                   );
+                                  final result = await ExportService.instance
+                                      .exportCycleLogsCsv(
+                                        uid: uid,
+                                        settings: notifier.settings,
+                                        range: selectedRange,
+                                        shareFile: true,
+                                      );
 
                                   if (mounted) {
                                     Navigator.pop(context);
-                                    ScaffoldMessenger.of(this.context).showSnackBar(
+                                    ScaffoldMessenger.of(
+                                      this.context,
+                                    ).showSnackBar(
                                       SnackBar(
                                         content: Text(
                                           'Exported ${result.recordCount} cycle records (${selectedRange.label}) to CSV 📄',
                                         ),
-                                        backgroundColor: AppColors.wellnessBrown,
+                                        backgroundColor:
+                                            AppColors.wellnessBrown,
                                       ),
                                     );
                                   }
                                 } catch (e) {
                                   setModalState(() => isExporting = false);
                                   if (mounted) {
-                                    ScaffoldMessenger.of(this.context).showSnackBar(
+                                    ScaffoldMessenger.of(
+                                      this.context,
+                                    ).showSnackBar(
                                       SnackBar(
                                         content: Text('Export failed: $e'),
                                         backgroundColor: Colors.redAccent,
@@ -702,7 +712,9 @@ class _CycleScreenState extends State<CycleScreen> {
                             _viewModel.currentMonth == now.month &&
                             _viewModel.selectedDay == now.day;
                         return Text(
-                          isToday ? 'Log today' : 'Log Day ${_viewModel.selectedDay}',
+                          isToday
+                              ? 'Log today'
+                              : 'Log Day ${_viewModel.selectedDay}',
                           style: AppTextStyles.labelMedium.copyWith(
                             color: AppColors.wellnessBrown,
                             fontWeight: FontWeight.bold,
@@ -879,7 +891,8 @@ class _CycleScreenState extends State<CycleScreen> {
                         _viewModel.resetToToday();
                       } else {
                         // Past date — select day and open log sheet to view/edit
-                        final wasAlreadySelected = _viewModel.selectedDay == day;
+                        final wasAlreadySelected =
+                            _viewModel.selectedDay == day;
                         _viewModel.setSelectedDay(day);
                         if (wasAlreadySelected) {
                           _showLogSheet(targetDay: day);
@@ -934,29 +947,28 @@ class _CycleScreenState extends State<CycleScreen> {
               ),
             ),
 
-          AppSpacing.h24,
-          // Legend below calendar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildLegendItem(AppColors.phaseMenstrual, 'Menstrual'),
-              AppSpacing.w8,
-              _buildLegendItem(AppColors.phaseFollicular, 'Follicular'),
-              AppSpacing.w8,
-              _buildLegendItem(AppColors.phaseOvulation, 'Ovulation'),
-              AppSpacing.w8,
-              _buildLegendItem(AppColors.phaseLuteal, 'Luteal'),
-            ],
-          ),
-        ],
+            AppSpacing.h16,
+            // Legend below calendar — uses Wrap to prevent overflow on small screens
+            Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              spacing: 12.0,
+              runSpacing: 8.0,
+              children: [
+                _buildLegendItem(AppColors.phaseMenstrual, 'Menstrual'),
+                _buildLegendItem(AppColors.phaseFollicular, 'Follicular'),
+                _buildLegendItem(AppColors.phaseOvulation, 'Ovulation'),
+                _buildLegendItem(AppColors.phaseLuteal, 'Luteal'),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   Widget _buildLegendItem(Color dotColor, String label) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 8,
@@ -1630,7 +1642,8 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
                       scale: 0.8,
                       child: Switch.adaptive(
                         value: _isPeriodStart,
-                        onChanged: (val) => setState(() => _isPeriodStart = val),
+                        onChanged: (val) =>
+                            setState(() => _isPeriodStart = val),
                         activeTrackColor: AppColors.phaseMenstrual,
                       ),
                     ),
@@ -1639,7 +1652,6 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
               ),
             ),
             const SizedBox(height: 24.0),
-
 
             // MOOD SECTION
             Text(
@@ -1904,7 +1916,6 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
                   isPeriodStart: _isPeriodStart,
                 );
                 Navigator.pop(context, journal);
-
               },
               child: Container(
                 height: 52,

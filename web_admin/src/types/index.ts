@@ -44,6 +44,14 @@ export interface AuthUser {
   displayName: string | null;
 }
 
+/** Admin Registration & Initialization Status */
+export interface AdminStatus {
+  initialized: boolean;
+  allowRegistration: boolean;
+  adminCount?: number;
+  adminEmail?: string;
+}
+
 /** Per-file upload progress (0–100) */
 export interface UploadProgress {
   thumbnail: number;
@@ -72,3 +80,39 @@ export interface UploadFormValues {
   thumbnail?: FileList;
   video?: FileList;
 }
+
+/** Individual Subscription Plan */
+export interface SubscriptionPlanItem {
+  id: string;
+  title: string;
+  badge?: string;
+  subtitle: string;
+  price: string;
+  period: string;
+  detail: string;
+  trialDays?: number;
+  enabled: boolean;
+}
+
+/** Complete Subscription Settings document in /app_settings/subscription_plans */
+export interface SubscriptionPlansConfig {
+  heroTagline: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  plans: SubscriptionPlanItem[];
+  updatedAt?: Date | null;
+}
+
+/** Subscription Request from a mobile app user */
+export interface SubscriptionRequestRecord {
+  id: string;
+  userId: string;
+  userEmail?: string;
+  displayName?: string;
+  planId: string;
+  status: 'pending' | 'approved' | 'active' | 'rejected' | 'cancelled';
+  source?: string;
+  requestedAt?: any;
+  approvedAt?: any;
+}
+

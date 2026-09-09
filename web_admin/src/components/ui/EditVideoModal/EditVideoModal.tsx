@@ -151,7 +151,7 @@ export function EditVideoModal({ isOpen, video, onSave, onClose }: EditVideoModa
 
       let extractedYoutubeId = '';
       if (videoSource === 'youtube' && youtubeUrl.trim()) {
-        const match = youtubeUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+        const match = youtubeUrl.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/);
         if (match && match[1]?.length === 11) extractedYoutubeId = match[1];
       }
 

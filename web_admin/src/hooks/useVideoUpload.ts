@@ -21,7 +21,7 @@ const DEFAULT_PROGRESS: UploadProgress = { thumbnail: 0, video: 0 };
 
 function extractYouTubeId(url?: string): string {
   if (!url) return '';
-  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+  const regExp = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
   const match = url.match(regExp);
   return match && match[1]?.length === 11 ? match[1] : '';
 }

@@ -22,20 +22,21 @@ let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 
-if (isFirebaseConfigured) {
-  const firebaseConfig = {
-    apiKey: apiKey as string,
-    authDomain: authDomain as string,
-    projectId: projectId as string,
-    storageBucket: storageBucket as string,
-    appId: appId as string,
-  };
+export const firebaseConfig = {
+  apiKey: (apiKey as string) || '',
+  authDomain: (authDomain as string) || '',
+  projectId: (projectId as string) || '',
+  storageBucket: (storageBucket as string) || '',
+  appId: (appId as string) || '',
+};
 
+if (isFirebaseConfigured) {
   // Prevent duplicate initialization during HMR
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   auth = getAuth(app);
   db = getFirestore(app);
 }
 
-export { auth, db };
+export { app, auth, db };
 export default app;
+

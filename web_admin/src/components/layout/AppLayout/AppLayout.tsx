@@ -26,7 +26,11 @@ export function AppLayout({ children }: AppLayoutProps) {
     ? 'Upload workout'
     : location.pathname === ROUTES.VIDEOS
       ? 'Video library'
-      : 'Overview';
+      : location.pathname === ROUTES.SUBSCRIPTIONS
+        ? 'Subscriptions'
+        : location.pathname === ROUTES.SUBSCRIBER_REQUESTS
+          ? 'Subscriber Requests'
+          : 'Overview';
 
   return (
     <div className={styles.layout}>
@@ -85,6 +89,33 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <path d="M8 4v16M3 9h18" />
               </svg>
               <span>Video Library</span>
+            </NavLink>
+
+            <NavLink
+              to={ROUTES.SUBSCRIPTIONS}
+              className={({ isActive }) =>
+                `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
+              }
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+              <span>Subscriptions</span>
+            </NavLink>
+
+            <NavLink
+              to={ROUTES.SUBSCRIBER_REQUESTS}
+              className={({ isActive }) =>
+                `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
+              }
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <span>Subscriber Requests</span>
             </NavLink>
           </nav>
         </div>

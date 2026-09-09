@@ -72,44 +72,55 @@ class CycleStateNotifier extends ChangeNotifier {
     notifyListeners();
 
     // 1. Profile stream (cycle settings live here in setupFlow map)
-    _profileSub = UserService.instance.getUserProfileStream(uid).listen(
-      (docSnap) {
-        final data = docSnap.data();
-        if (data != null && data['setupFlow'] is Map) {
-          final setupMap = data['setupFlow'] as Map<String, dynamic>;
-          _settings = CycleSettings.fromSetupFlowMap(setupMap);
-          _recompute();
-        }
-      },
-      onError: (e) {
-        Helpers.log('CycleStateNotifier profile stream error: $e');
-        _error = 'Failed to load cycle settings';
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
+    _profileSub = UserService.instance
+        .getUserProfileStream(uid)
+        .listen(
+          (docSnap) {
+            final data = docSnap.data();
+            if (data != null && data['setupFlow'] is Map) {
+              final setupMap = data['setupFlow'] as Map<String, dynamic>;
+              _settings = CycleSettings.fromSetupFlowMap(setupMap);
+              _recompute();
+            }
+          },
+          onError: (e) {
+            Helpers.log('CycleStateNotifier profile stream error: $e');
+            _error = 'Failed to load cycle settings';
+            _isLoading = false;
+            notifyListeners();
+          },
+        );
 
     // 2. All cycle logs (full stream — needed for cross-month anchor detection)
-    _logsSub = CycleService.instance.streamCycleLogs(uid).listen(
-      (logsMap) {
-        _allLogs = logsMap;
-        _recompute();
-      },
-      onError: (e) {
-        Helpers.log('CycleStateNotifier logs stream error: $e');
-      },
-    );
+    _logsSub = CycleService.instance
+        .streamCycleLogs(uid)
+        .listen(
+          (logsMap) {
+            _allLogs = logsMap;
+            // Fix #2+5: Self-healing cleanup — if any PeriodRecord exists in Firestore
+            // but its corresponding cycle_log has isPeriodStart=false (user deselected it),
+            // proactively delete the stale PeriodRecord. This handles legacy data and
+            // any edge cases where the delete-on-unselect previously failed silently.
+            _cleanupStalePeriodRecords(uid, logsMap);
+            _recompute();
+          },
+          onError: (e) {
+            Helpers.log('CycleStateNotifier logs stream error: $e');
+          },
+        );
 
     // 3. Confirmed period records subcollection
-    _periodsSub = CycleService.instance.streamPeriodRecords(uid).listen(
-      (records) {
-        _periodRecords = records;
-        _recompute();
-      },
-      onError: (e) {
-        Helpers.log('CycleStateNotifier periods stream error: $e');
-      },
-    );
+    _periodsSub = CycleService.instance
+        .streamPeriodRecords(uid)
+        .listen(
+          (records) {
+            _periodRecords = records;
+            _recompute();
+          },
+          onError: (e) {
+            Helpers.log('CycleStateNotifier periods stream error: $e');
+          },
+        );
   }
 
   // ── Core Computation ──────────────────────────────────────────────────────
@@ -121,8 +132,9 @@ class CycleStateNotifier extends ChangeNotifier {
     final List<DateTime> confirmedStarts = _getConfirmedStartDates(today);
 
     // Find the most recent confirmed period anchor
-    final DateTime? confirmedAnchor =
-        confirmedStarts.isNotEmpty ? confirmedStarts.first : null;
+    final DateTime? confirmedAnchor = confirmedStarts.isNotEmpty
+        ? confirmedStarts.first
+        : null;
 
     // Calculate adaptive cycle length from history (fallback to onboarding settings)
     final int adaptiveCycleLength = CycleCalculator.computeAdaptiveCycleLength(
@@ -131,12 +143,13 @@ class CycleStateNotifier extends ChangeNotifier {
     );
 
     // Calculate adaptive period length from actual flow-log history
-    final int adaptivePeriodLength = CycleCalculator.computeAdaptivePeriodLength(
-      confirmedStarts: confirmedStarts,
-      allLogs: _allLogs,
-      fallbackLength: _settings.periodLength,
-      cycleLength: adaptiveCycleLength,
-    );
+    final int adaptivePeriodLength =
+        CycleCalculator.computeAdaptivePeriodLength(
+          confirmedStarts: confirmedStarts,
+          allLogs: _allLogs,
+          fallbackLength: _settings.periodLength,
+          cycleLength: adaptiveCycleLength,
+        );
 
     final updatedSettings = _settings.copyWith(
       cycleLength: adaptiveCycleLength,
@@ -169,13 +182,15 @@ class CycleStateNotifier extends ChangeNotifier {
         NotificationService.instance.showNotification(
           id: 101,
           title: 'Period Reminder 🌸',
-          body: 'Your next period is predicted to start in 2 days. Take time to rest and prepare!',
+          body:
+              'Your next period is predicted to start in 2 days. Take time to rest and prepare!',
         );
       } else if (daysToPeriod == 0) {
         NotificationService.instance.showNotification(
           id: 102,
           title: 'Cycle Update 🌸',
-          body: 'Your period is predicted to start today. Log your flow and symptoms in SYD FLOW!',
+          body:
+              'Your period is predicted to start today. Log your flow and symptoms in SYD FLOW!',
         );
       }
 
@@ -184,7 +199,8 @@ class CycleStateNotifier extends ChangeNotifier {
         NotificationService.instance.showNotification(
           id: 103,
           title: 'Ovulation Window 💫',
-          body: 'Ovulation phase is predicted tomorrow. Energy levels are peaking!',
+          body:
+              'Ovulation phase is predicted tomorrow. Energy levels are peaking!',
         );
       }
     } catch (e) {
@@ -200,7 +216,8 @@ class CycleStateNotifier extends ChangeNotifier {
     // From PeriodRecord subcollection
     for (final rec in _periodRecords) {
       if (!rec.startDate.isAfter(cutoff)) {
-        final key = '${rec.startDate.year}-${rec.startDate.month}-${rec.startDate.day}';
+        final key =
+            '${rec.startDate.year}-${rec.startDate.month}-${rec.startDate.day}';
         uniqueMap[key] = rec.startDate;
       }
     }
@@ -261,6 +278,43 @@ class CycleStateNotifier extends ChangeNotifier {
 
   /// Forces a recompute without waiting for a new stream event.
   void refresh() => _recompute();
+
+  // ── Self-Healing Cleanup ─────────────────────────────────────────────────
+
+  /// Fix #2+5: Finds any PeriodRecord whose corresponding cycle_log has
+  /// [isPeriodStart] == false and deletes it from Firestore.
+  ///
+  /// This handles:
+  /// 1. Legacy data — records created before delete-on-unselect was implemented.
+  /// 2. Edge cases — any previous silent delete failures.
+  ///
+  /// Fire-and-forget (async, non-blocking). Errors are logged only.
+  void _cleanupStalePeriodRecords(String uid, Map<String, DayJournal> logsMap) {
+    if (_periodRecords.isEmpty) return;
+
+    for (final record in List<PeriodRecord>.from(_periodRecords)) {
+      final y = record.startDate.year.toString();
+      final m = record.startDate.month.toString().padLeft(2, '0');
+      final d = record.startDate.day.toString().padLeft(2, '0');
+      final dateKey = '$y-$m-$d';
+
+      final log = logsMap[dateKey];
+      // If the log exists and explicitly marks isPeriodStart = false,
+      // then the user deselected it — the PeriodRecord is stale, delete it.
+      if (log != null && !log.isPeriodStart) {
+        CycleService.instance
+            .deletePeriodRecord(uid: uid, dateKey: dateKey)
+            .then((_) {
+              Helpers.log(
+                'CycleStateNotifier: cleaned up stale PeriodRecord for $dateKey',
+              );
+            })
+            .catchError((e) {
+              Helpers.log('CycleStateNotifier: cleanup error for $dateKey: $e');
+            });
+      }
+    }
+  }
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
