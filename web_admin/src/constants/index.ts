@@ -71,6 +71,7 @@ export const FIRESTORE_COLLECTIONS = {
   SETTINGS: 'app_settings',
   SUBSCRIPTION_PLANS: 'subscription_plans',
   USERS: 'users',
+  ADMIN_USERS: 'admin_users',
 } as const;
 
 /** Default Subscription Plans Configuration */

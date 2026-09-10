@@ -109,10 +109,15 @@ class Workout {
       thumb = 'https://img.youtube.com/vi/$vId/hqdefault.jpg';
     }
 
-    // `isPaid` is canonical. `premium` is retained for older admin uploads.
-    // Treat either true value as premium so an inconsistent legacy document
-    // can never accidentally unlock a paid video.
-    final isPaid = map['isPaid'] == true || map['premium'] == true;
+    // `isPaid` is canonical. Treat any true value or isFree == false as paid
+    // so no admin upload or legacy schema can accidentally unlock a paid video.
+    final isPaid = map['isPaid'] == true ||
+        map['premium'] == true ||
+        map['isPaid']?.toString() == 'true' ||
+        map['premium']?.toString() == 'true' ||
+        (map['isFree'] == false && map['isFree'] != null) ||
+        map['tier']?.toString().toLowerCase() == 'paid' ||
+        map['tier']?.toString().toLowerCase() == 'premium';
 
     // Parse propsUsed — support both legacy string and new List<String>
     final rawProps = map['propsUsed'] ?? map['equipment'];

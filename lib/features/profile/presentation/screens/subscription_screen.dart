@@ -116,9 +116,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                                 const Icon(Icons.play_circle_fill_rounded, size: 22, color: AppColors.wellnessPinkText),
                                 const SizedBox(width: 10),
-                                Text(
-                                  'Explore Workout Studio',
-                                  style: AppTextStyles.labelLarge.copyWith(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                                Flexible(
+                                  child: Text(
+                                    'Explore Workout Studio',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.labelLarge.copyWith(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                                  ),
                                 ),
                               ]),
                             ),
@@ -185,15 +189,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                   else
                                     Icon(userStatus.status == 'pending' ? Icons.hourglass_top_rounded : Icons.lock_outline_rounded, size: 19),
                                   const SizedBox(width: 9),
-                                  Text(
-                                    _isRequestingSubscription
-                                        ? 'Submitting request…'
-                                        : userStatus.status == 'pending'
-                                            ? 'Request Submitted (Pending Approval)'
-                                            : hasTrial
-                                                ? 'Start ${activePlan.trialDays}-day free trial'
-                                                : 'Continue with ${activePlan.title}',
-                                    style: AppTextStyles.labelLarge.copyWith(color: AppColors.white, fontWeight: FontWeight.w700),
+                                  Flexible(
+                                    child: Text(
+                                      _isRequestingSubscription
+                                          ? 'Submitting request…'
+                                          : userStatus.status == 'pending'
+                                              ? 'Request Submitted (Pending Approval)'
+                                              : hasTrial
+                                                  ? 'Start ${activePlan.trialDays}-day free trial'
+                                                  : 'Continue with ${activePlan.title}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTextStyles.labelLarge.copyWith(color: AppColors.white, fontWeight: FontWeight.w700),
+                                    ),
                                   ),
                                 ]),
                               ),

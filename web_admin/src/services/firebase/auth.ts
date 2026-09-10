@@ -75,16 +75,22 @@ export async function checkIfAdminInitialized(): Promise<AdminStatus> {
   }
 
   try {
-    // Query users collection for accounts with role == 'admin'
-    const q = query(
-      collection(db, FIRESTORE_COLLECTIONS.USERS),
-      where('role', '==', 'admin'),
-    );
-    const querySnap = await getDocs(q);
-    const realAdminCount = querySnap.size;
+    // 1. Primary check: query dedicated admin_users collection
+    let adminDocs = (await getDocs(collection(db, FIRESTORE_COLLECTIONS.ADMIN_USERS))).docs;
+
+    // 2. Fallback check: query users collection for role == 'admin'
+    if (adminDocs.length === 0) {
+      const qFallback = query(
+        collection(db, FIRESTORE_COLLECTIONS.USERS),
+        where('role', '==', 'admin'),
+      );
+      adminDocs = (await getDocs(qFallback)).docs;
+    }
+
+    const realAdminCount = adminDocs.length;
 
     let primaryAdminEmail: string | undefined;
-    querySnap.docs.forEach((d) => {
+    adminDocs.forEach((d) => {
       const email = d.data()?.email;
       if (email && typeof email === 'string' && !primaryAdminEmail) {
         primaryAdminEmail = email.toLowerCase().trim();
@@ -121,7 +127,7 @@ export function setIsRegisteringAdmin(val: boolean): void {
 
 /**
  * Register an Admin Account directly in Firestore.
- * Creates/Updates the admin profile in Firestore users collection with custom logic.
+ * Creates/Updates the admin profile in Firestore dedicated admin_users collection.
  */
 export async function registerFirstAdminAccount(
   email: string,
@@ -139,12 +145,20 @@ export async function registerFirstAdminAccount(
     const status = await checkIfAdminInitialized();
     const currentCount = status.adminCount ?? 0;
 
-    // Check if account with this email already exists
-    const q = query(
-      collection(db, FIRESTORE_COLLECTIONS.USERS),
+    // Check if account with this email already exists in admin_users or users
+    const qAdmin = query(
+      collection(db, FIRESTORE_COLLECTIONS.ADMIN_USERS),
       where('email', '==', cleanEmail),
     );
-    const existingSnap = await getDocs(q);
+    let existingSnap = await getDocs(qAdmin);
+
+    if (existingSnap.empty) {
+      const qUser = query(
+        collection(db, FIRESTORE_COLLECTIONS.USERS),
+        where('email', '==', cleanEmail),
+      );
+      existingSnap = await getDocs(qUser);
+    }
 
     if (existingSnap.empty && currentCount >= MAX_ADMIN_ACCOUNTS) {
       throw new Error(
@@ -154,7 +168,7 @@ export async function registerFirstAdminAccount(
 
     const docId = !existingSnap.empty ? existingSnap.docs[0].id : cleanDocId;
 
-    // 2. Save user document directly in Firestore users collection
+    // 2. Save user document directly in dedicated admin_users collection
     const adminData = {
       uid: docId,
       email: cleanEmail,
@@ -166,7 +180,10 @@ export async function registerFirstAdminAccount(
       createdAt: serverTimestamp(),
     };
 
-    await setDoc(doc(db, FIRESTORE_COLLECTIONS.USERS, docId), adminData, { merge: true });
+    await Promise.all([
+      setDoc(doc(db, FIRESTORE_COLLECTIONS.ADMIN_USERS, docId), adminData, { merge: true }),
+      setDoc(doc(db, FIRESTORE_COLLECTIONS.USERS, docId), adminData, { merge: true }),
+    ]);
 
     // 3. Set setting marker for backward compatibility
     const updateMarker = {
@@ -197,19 +214,28 @@ export async function registerFirstAdminAccount(
 }
 
 /**
- * Sign in with email and password via Firestore logic.
+ * Sign in with email and password via Firestore logic directly from admin_users collection.
  */
 export async function signInWithEmail(email: string, password: string): Promise<AuthUser> {
   if (!db) throw new Error('Firebase Firestore is not configured.');
   const cleanEmail = email.toLowerCase().trim();
 
   try {
-    // Query users collection for matching admin email
-    const q = query(
-      collection(db, FIRESTORE_COLLECTIONS.USERS),
+    // 1. Query dedicated admin_users collection
+    const qAdmin = query(
+      collection(db, FIRESTORE_COLLECTIONS.ADMIN_USERS),
       where('email', '==', cleanEmail),
     );
-    const querySnap = await getDocs(q);
+    let querySnap = await getDocs(qAdmin);
+
+    // 2. Fallback: Query users collection if not found in admin_users
+    if (querySnap.empty) {
+      const qUser = query(
+        collection(db, FIRESTORE_COLLECTIONS.USERS),
+        where('email', '==', cleanEmail),
+      );
+      querySnap = await getDocs(qUser);
+    }
 
     if (querySnap.empty) {
       // Also check if admin exists in settings
@@ -240,12 +266,12 @@ export async function signInWithEmail(email: string, password: string): Promise<
     const userDoc = querySnap.docs[0];
     const data = userDoc.data();
 
-    // Verify role
-    if (data.role !== 'admin' && data.isSuperAdmin !== true) {
+    // Verify role if in users collection
+    if (data.role && data.role !== 'admin' && data.isSuperAdmin !== true) {
       throw new Error('Access denied. This account does not have administrator privileges.');
     }
 
-    // Verify password if set
+    // Verify password if set in Firestore doc
     if (data.password && data.password !== password) {
       throw new Error('Invalid password. Please enter the correct password or update it below.');
     }
@@ -285,7 +311,7 @@ export function onAuthStateChange(callback: (user: AuthUser | null) => void): ()
 
 /**
  * Update / Reset Admin Password in Firestore:
- * Updates the password directly in Firestore for the admin email.
+ * Updates the password directly in Firestore admin_users collection for the admin email.
  */
 export async function updateAdminPassword(
   email: string,
@@ -301,42 +327,45 @@ export async function updateAdminPassword(
   }
 
   try {
-    const q = query(
-      collection(db, FIRESTORE_COLLECTIONS.USERS),
+    const qAdmin = query(
+      collection(db, FIRESTORE_COLLECTIONS.ADMIN_USERS),
       where('email', '==', cleanEmail),
     );
-    const querySnap = await getDocs(q);
+    let querySnap = await getDocs(qAdmin);
 
-    let targetDocRef = null;
+    if (querySnap.empty) {
+      const qUser = query(
+        collection(db, FIRESTORE_COLLECTIONS.USERS),
+        where('email', '==', cleanEmail),
+      );
+      querySnap = await getDocs(qUser);
+    }
+
+    const cleanDocId = `admin_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const targetDocId = !querySnap.empty ? querySnap.docs[0].id : cleanDocId;
 
     if (!querySnap.empty) {
-      const docSnap = querySnap.docs[0];
-      const data = docSnap.data();
-
-      // If currentPassword is provided and doc has a stored password, check it
+      const data = querySnap.docs[0].data();
       if (currentPassword && data.password && data.password !== currentPassword) {
         throw new Error('Current password does not match.');
       }
-      targetDocRef = docSnap.ref;
-    } else {
-      // If not in users, create or use cleanDocId
-      const cleanDocId = `admin_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      targetDocRef = doc(db, FIRESTORE_COLLECTIONS.USERS, cleanDocId);
     }
 
-    // Update password in Firestore users
-    await setDoc(
-      targetDocRef,
-      {
-        email: cleanEmail,
-        password: newPassword,
-        role: 'admin',
-        isSuperAdmin: true,
-        displayName: 'SYD FLOWS Admin',
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
+    const updatedData = {
+      uid: targetDocId,
+      email: cleanEmail,
+      password: newPassword,
+      role: 'admin',
+      isSuperAdmin: true,
+      displayName: 'SYD FLOWS Admin',
+      updatedAt: serverTimestamp(),
+    };
+
+    // Update password directly in both admin_users and users collections
+    await Promise.all([
+      setDoc(doc(db, FIRESTORE_COLLECTIONS.ADMIN_USERS, targetDocId), updatedData, { merge: true }),
+      setDoc(doc(db, FIRESTORE_COLLECTIONS.USERS, targetDocId), updatedData, { merge: true }),
+    ]);
 
     // Update settings marker
     const updateMarker = {

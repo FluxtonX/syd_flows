@@ -1,27 +1,40 @@
 /* ─────────────────────────────────────────────────────────────
-   Dashboard Page – Matching Screenshot 1 Layout & SYD FLOW Theme
+   Dashboard Page – SYD FLOWS Admin Dashboard
+   Executive Content & Subscriber Requests Overview
    ───────────────────────────────────────────────────────────── */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { getVideoCount } from '@/services/firebase/firestore';
+import { getVideoCount, getAllSubscriptionRequests } from '@/services/firebase/firestore';
 import { Button } from '@/components/ui/Button/Button';
 import { AppLayout } from '@/components/layout/AppLayout/AppLayout';
 import { WorkoutVideosTable } from '@/components/ui/WorkoutVideosTable/WorkoutVideosTable';
 import { ROUTES } from '@/constants';
+import type { SubscriptionRequestRecord } from '@/types';
 import styles from './DashboardPage.module.css';
 
 export function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [videoCount, setVideoCount] = useState<number | null>(null);
+  const [subRequests, setSubRequests] = useState<SubscriptionRequestRecord[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
 
-  // Load total video count from Firestore
+  // Load video count and subscriber requests from Firestore
   useEffect(() => {
     getVideoCount().then(setVideoCount);
+
+    getAllSubscriptionRequests()
+      .then(setSubRequests)
+      .catch((err) => console.error('Failed to load subscriber requests on dashboard:', err))
+      .finally(() => setLoadingRequests(false));
   }, []);
 
   const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? 'Admin';
+
+  const pendingCount = subRequests.filter((r) => r.status === 'pending').length;
+  const approvedCount = subRequests.filter((r) => r.status === 'approved' || r.status === 'active').length;
+  const cancelledCount = subRequests.filter((r) => r.status === 'cancelled' || r.status === 'rejected').length;
 
   return (
     <AppLayout>
@@ -33,12 +46,110 @@ export function DashboardPage() {
               Welcome back, {displayName} 👋
             </h1>
             <p className={styles.subtitle}>
-              Your content workspace for SYD FLOWS.
+              Your executive content workspace &amp; subscriber management center for SYD FLOWS.
             </p>
           </div>
         </section>
 
-        {/* ── 3 Stat Cards (Matching Screenshot 1) ── */}
+        {/* ── Subscriber Requests Stats Bar ── */}
+        <section aria-label="Subscriber Requests Overview" className={styles.subscriberSection}>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionTitleBox}>
+              <h2 className={styles.sectionTitle}>Subscriber Access &amp; Entitlements</h2>
+              <span className={styles.sectionSub}>Live subscriber requests and membership approvals</span>
+            </div>
+            <button
+              type="button"
+              className={styles.manageRequestsBtn}
+              onClick={() => navigate(ROUTES.SUBSCRIBER_REQUESTS)}
+            >
+              Manage Requests &rarr;
+            </button>
+          </div>
+
+          <div className={styles.subscriberStatsGrid}>
+            {/* Total Requests */}
+            <div
+              className={styles.subStatCard}
+              onClick={() => navigate(ROUTES.SUBSCRIBER_REQUESTS)}
+            >
+              <div className={`${styles.subStatIcon} ${styles.iconTotal}`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <div className={styles.subStatMeta}>
+                <span className={styles.subStatLabel}>Total Requests</span>
+                <span className={styles.subStatValue}>
+                  {loadingRequests ? '—' : subRequests.length}
+                </span>
+              </div>
+            </div>
+
+            {/* Pending Review */}
+            <div
+              className={`${styles.subStatCard} ${pendingCount > 0 ? styles.subStatCardHighlight : ''}`}
+              onClick={() => navigate(ROUTES.SUBSCRIBER_REQUESTS)}
+            >
+              <div className={`${styles.subStatIcon} ${styles.iconPending}`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
+              <div className={styles.subStatMeta}>
+                <span className={styles.subStatLabel}>Pending Review</span>
+                <span className={styles.subStatValue} style={{ color: '#f59e0b' }}>
+                  {loadingRequests ? '—' : pendingCount}
+                </span>
+              </div>
+            </div>
+
+            {/* Approved Access */}
+            <div
+              className={styles.subStatCard}
+              onClick={() => navigate(ROUTES.SUBSCRIBER_REQUESTS)}
+            >
+              <div className={`${styles.subStatIcon} ${styles.iconApproved}`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              </div>
+              <div className={styles.subStatMeta}>
+                <span className={styles.subStatLabel}>Approved Access</span>
+                <span className={styles.subStatValue} style={{ color: 'var(--color-success)' }}>
+                  {loadingRequests ? '—' : approvedCount}
+                </span>
+              </div>
+            </div>
+
+            {/* Revoked Access */}
+            <div
+              className={styles.subStatCard}
+              onClick={() => navigate(ROUTES.SUBSCRIBER_REQUESTS)}
+            >
+              <div className={`${styles.subStatIcon} ${styles.iconRevoked}`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              </div>
+              <div className={styles.subStatMeta}>
+                <span className={styles.subStatLabel}>Revoked Access</span>
+                <span className={styles.subStatValue}>
+                  {loadingRequests ? '—' : cancelledCount}
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 3 Content & System Stat Cards ── */}
         <section aria-label="Statistics" className={styles.statsRow}>
           {/* Total Videos */}
           <div className={styles.statCard}>
@@ -53,7 +164,7 @@ export function DashboardPage() {
               <span className={styles.statValue}>
                 {videoCount === null ? '—' : videoCount.toLocaleString()}
               </span>
-              <span className={styles.statSubtext}>Uploaded</span>
+              <span className={styles.statSubtext}>Uploaded in library</span>
             </div>
           </div>
 
@@ -88,7 +199,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Status */}
+          {/* System Status */}
           <div className={styles.statCard}>
             <div className={`${styles.statIcon} ${styles.statIconOrange}`}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -96,16 +207,16 @@ export function DashboardPage() {
               </svg>
             </div>
             <div className={styles.statMeta}>
-              <span className={styles.statLabel}>Status</span>
+              <span className={styles.statLabel}>System Status</span>
               <span className={styles.statValue} style={{ color: 'var(--color-success)' }}>
                 Live
               </span>
-              <span className={styles.statSubtext}>Everything is working</span>
+              <span className={styles.statSubtext}>Firestore &amp; App Services healthy</span>
             </div>
           </div>
         </section>
 
-        {/* ── Upload CTA Box (Dashed box matching Screenshot 1) ── */}
+        {/* ── Upload CTA Box ── */}
         <section aria-label="Upload action" className={styles.ctaCard}>
           <div className={styles.ctaLeft}>
             <div className={styles.ctaIconBox}>

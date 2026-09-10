@@ -71,15 +71,25 @@ class CycleStateNotifier extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // 1. Profile stream (cycle settings live here in setupFlow map)
+    // 1. Profile stream (cycle settings live here in setupFlow map or top-level user doc)
     _profileSub = UserService.instance
         .getUserProfileStream(uid)
         .listen(
           (docSnap) {
             final data = docSnap.data();
-            if (data != null && data['setupFlow'] is Map) {
-              final setupMap = data['setupFlow'] as Map<String, dynamic>;
-              _settings = CycleSettings.fromSetupFlowMap(setupMap);
+            if (data != null) {
+              if (data['setupFlow'] is Map) {
+                final setupMap = Map<String, dynamic>.from(
+                  data['setupFlow'] as Map,
+                );
+                _settings = CycleSettings.fromSetupFlowMap(setupMap);
+              } else if (data['cycleLength'] != null ||
+                  data['lastPeriodStart'] != null ||
+                  data['periodLength'] != null) {
+                _settings = CycleSettings.fromSetupFlowMap(
+                  Map<String, dynamic>.from(data),
+                );
+              }
               _recompute();
             }
           },
@@ -136,24 +146,28 @@ class CycleStateNotifier extends ChangeNotifier {
         ? confirmedStarts.first
         : null;
 
-    // Calculate adaptive cycle length from history (fallback to onboarding settings)
-    final int adaptiveCycleLength = CycleCalculator.computeAdaptiveCycleLength(
-      confirmedStarts: confirmedStarts,
-      fallbackLength: _settings.cycleLength,
-    );
+    // Only apply adaptive rolling averages if user has sufficient history (2+ completed cycles)
+    final bool hasSufficientHistory = confirmedStarts.length >= 2;
 
-    // Calculate adaptive period length from actual flow-log history
-    final int adaptivePeriodLength =
-        CycleCalculator.computeAdaptivePeriodLength(
-          confirmedStarts: confirmedStarts,
-          allLogs: _allLogs,
-          fallbackLength: _settings.periodLength,
-          cycleLength: adaptiveCycleLength,
-        );
+    final int effectiveCycleLength = hasSufficientHistory
+        ? CycleCalculator.computeAdaptiveCycleLength(
+            confirmedStarts: confirmedStarts,
+            fallbackLength: _settings.cycleLength,
+          )
+        : _settings.cycleLength;
+
+    final int effectivePeriodLength = hasSufficientHistory
+        ? CycleCalculator.computeAdaptivePeriodLength(
+            confirmedStarts: confirmedStarts,
+            allLogs: _allLogs,
+            fallbackLength: _settings.periodLength,
+            cycleLength: effectiveCycleLength,
+          )
+        : _settings.periodLength;
 
     final updatedSettings = _settings.copyWith(
-      cycleLength: adaptiveCycleLength,
-      periodLength: adaptivePeriodLength,
+      cycleLength: effectiveCycleLength,
+      periodLength: effectivePeriodLength,
     );
 
     try {

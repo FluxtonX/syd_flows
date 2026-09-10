@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────────────────────
-   Dashboard Page – Dynamic Light/Dark Theme Styles
+   Dashboard Page – Dynamic Light/Dark Theme Styles & Executive Cards
    ───────────────────────────────────────────────────────────── */
 
 .page {
@@ -39,7 +39,160 @@
   margin-top: 4px;
 }
 
-/* ── 3 Stat Cards ── */
+/* ── Subscriber Requests Overview Section ── */
+.subscriberSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.sectionTitleBox {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sectionTitle {
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  color: var(--color-text-primary);
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.sectionSub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.manageRequestsBtn {
+  background: transparent;
+  border: none;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.manageRequestsBtn:hover {
+  color: var(--color-primary-hover);
+  background: var(--color-primary-bg);
+}
+
+.subscriberStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+@media (max-width: 1100px) {
+  .subscriberStatsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .subscriberStatsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.subStatCard {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 84px;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.subStatCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-focus);
+  box-shadow: var(--shadow-glow-sm);
+}
+
+.subStatCardHighlight {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: linear-gradient(135deg, var(--color-card), rgba(245, 158, 11, 0.05));
+}
+
+.subStatIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.iconTotal {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-glow);
+}
+
+.iconPending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.iconApproved {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.iconRevoked {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.subStatMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.subStatLabel {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subStatValue {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  color: var(--color-text-primary);
+  line-height: 1.1;
+}
+
+/* ── 3 Content & System Stat Cards ── */
 .statsRow {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

@@ -72,6 +72,32 @@ class CycleCalculator {
     );
   }
 
+  // ── Helper: Dynamic Ovulation Day ─────────────────────────────────────────
+
+  /// Computes ovulation day dynamically so Follicular phase is guaranteed
+  /// a healthy duration (at least 4 days) and Luteal phase does not absorb
+  /// the entire cycle when period length is long or cycle length is short.
+  static int _calculateOvulationDay({
+    required int cycleLength,
+    required int periodLength,
+  }) {
+    final int safePeriodLength = periodLength.clamp(2, 10);
+    final int safeCycleLength = cycleLength.clamp(safePeriodLength + 5, 60);
+
+    // Guaranteed minimum 4 days for follicular phase (safePeriodLength + 1 to ovulationDay - 2)
+    final int minOvulationDay = safePeriodLength + 6;
+    final int maxOvulationDay = safeCycleLength - 2;
+
+    // Standard clinical estimate is cycleLength - 14
+    final int rawOvulationDay = safeCycleLength - 14;
+
+    if (minOvulationDay <= maxOvulationDay) {
+      return rawOvulationDay.clamp(minOvulationDay, maxOvulationDay);
+    } else {
+      return (safePeriodLength + safeCycleLength) ~/ 2;
+    }
+  }
+
   // ── Phase Boundaries ─────────────────────────────────────────────────────
 
   /// Computes which phase a [cycleDay] belongs to.
@@ -90,13 +116,10 @@ class CycleCalculator {
     final int safePeriodLength = periodLength.clamp(2, 10);
     final int safeCycleLength = cycleLength.clamp(safePeriodLength + 5, 60);
 
-    final int minOvulationDay = safePeriodLength + 3;
-    final int maxOvulationDay = safeCycleLength - 2;
-    final int rawOvulationDay = safeCycleLength - 14;
-
-    final int ovulationDay = (minOvulationDay <= maxOvulationDay)
-        ? rawOvulationDay.clamp(minOvulationDay, maxOvulationDay)
-        : safePeriodLength + 3;
+    final int ovulationDay = _calculateOvulationDay(
+      cycleLength: safeCycleLength,
+      periodLength: safePeriodLength,
+    );
 
     final int follicularStart = safePeriodLength + 1;
     final int follicularEnd = ovulationDay - 2;
@@ -131,13 +154,10 @@ class CycleCalculator {
       Duration(days: daysUntilNextCycle),
     );
 
-    final int minOvulationDay = safePeriodLength + 3;
-    final int maxOvulationDay = safeCycleLength - 2;
-    final int rawOvulationDay = safeCycleLength - 14;
-
-    final int ovulationDayNum = (minOvulationDay <= maxOvulationDay)
-        ? rawOvulationDay.clamp(minOvulationDay, maxOvulationDay)
-        : safePeriodLength + 3;
+    final int ovulationDayNum = _calculateOvulationDay(
+      cycleLength: safeCycleLength,
+      periodLength: safePeriodLength,
+    );
 
     // anchor is already the start of the current cycle (Day 1)
     final DateTime ovulationDate = anchor.add(
@@ -189,7 +209,8 @@ class CycleCalculator {
   }) {
     if (allLogs == null || allLogs.isEmpty) return fallback.clamp(2, 10);
 
-    final DateTime cycleEnd = cycleAnchor.add(Duration(days: cycleLength));
+    // Only count bleeding days in the initial 10-day window from cycle anchor
+    final DateTime initialWindowEnd = cycleAnchor.add(const Duration(days: 10));
 
     int bleedingDays = 0;
 
@@ -198,9 +219,9 @@ class CycleCalculator {
       if (date == null) continue;
       final dateNorm = _dateOnly(date);
 
-      // Within this cycle window and not after today
+      // Within initial period window and not after today
       if (!dateNorm.isBefore(cycleAnchor) &&
-          dateNorm.isBefore(cycleEnd) &&
+          dateNorm.isBefore(initialWindowEnd) &&
           !dateNorm.isAfter(today)) {
         final flow = entry.value.flow;
         if (flow != null && flow.isNotEmpty) {

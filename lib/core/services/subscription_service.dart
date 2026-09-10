@@ -223,26 +223,35 @@ class SubscriptionService {
 
         void emitStatus() {
           if (!controller.isClosed) {
-            final active = isPrem || reqStatus == 'approved' || reqStatus == 'active';
+            final active =
+                isPrem || reqStatus == 'approved' || reqStatus == 'active';
             controller.add(
               UserSubscriptionStatus(
                 isPremium: active,
-                status: active ? 'active' : (reqStatus == 'pending' ? 'pending' : 'inactive'),
+                status: active
+                    ? 'active'
+                    : (reqStatus == 'pending' ? 'pending' : 'inactive'),
                 planTitle: planName,
               ),
             );
           }
         }
 
-        final userSub = _db.collection('users').doc(user.uid).snapshots().listen((snap) {
-          final data = snap.data();
-          isPrem = _hasActiveFirebaseSubscription(data);
-          final pId = data?['subscription']?['planId']?.toString();
-          if (pId != null) {
-            planName = pId.toLowerCase() == 'monthly' ? 'Monthly Plan' : 'Annual Plan';
-          }
-          emitStatus();
-        });
+        final userSub = _db
+            .collection('users')
+            .doc(user.uid)
+            .snapshots()
+            .listen((snap) {
+              final data = snap.data();
+              isPrem = _hasActiveFirebaseSubscription(data);
+              final pId = data?['subscription']?['planId']?.toString();
+              if (pId != null) {
+                planName = pId.toLowerCase() == 'monthly'
+                    ? 'Monthly Plan'
+                    : 'Annual Plan';
+              }
+              emitStatus();
+            });
 
         final reqSub = _db
             .collection('users')
@@ -251,11 +260,46 @@ class SubscriptionService {
             .snapshots()
             .listen((snap) {
               if (snap.docs.isNotEmpty) {
-                final d = snap.docs.first.data();
-                reqStatus = d['status']?.toString().toLowerCase() ?? 'none';
-                final pId = d['planId']?.toString();
-                if (pId != null) {
-                  planName = pId.toLowerCase() == 'monthly' ? 'Monthly Plan' : 'Annual Plan';
+                Map<String, dynamic>? selectedData;
+
+                // 1. Always prefer authoritative doc 'current' if present
+                final currentDoc = snap.docs
+                    .cast<DocumentSnapshot<Map<String, dynamic>>?>()
+                    .firstWhere((d) => d?.id == 'current', orElse: () => null);
+
+                if (currentDoc != null) {
+                  selectedData = currentDoc.data();
+                } else {
+                  // Fallback: check pending, then approved, then first doc
+                  for (final doc in snap.docs) {
+                    final st = doc.data()['status']?.toString().toLowerCase();
+                    if (st == 'pending') {
+                      selectedData = doc.data();
+                      break;
+                    }
+                  }
+                  if (selectedData == null) {
+                    for (final doc in snap.docs) {
+                      final st = doc.data()['status']?.toString().toLowerCase();
+                      if (st == 'approved' || st == 'active') {
+                        selectedData = doc.data();
+                        break;
+                      }
+                    }
+                  }
+                  selectedData ??= snap.docs.first.data();
+                }
+
+                if (selectedData != null) {
+                  reqStatus =
+                      selectedData['status']?.toString().toLowerCase() ??
+                      'none';
+                  final pId = selectedData['planId']?.toString();
+                  if (pId != null) {
+                    planName = pId.toLowerCase() == 'monthly'
+                        ? 'Monthly Plan'
+                        : 'Annual Plan';
+                  }
                 }
               } else {
                 reqStatus = 'none';

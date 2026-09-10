@@ -116,15 +116,21 @@ class CyclePredictions {
     final today = DateTime.now();
     final todayNorm = DateTime(today.year, today.month, today.day);
     final target = DateTime(
-        nextPeriodStart.year, nextPeriodStart.month, nextPeriodStart.day);
+      nextPeriodStart.year,
+      nextPeriodStart.month,
+      nextPeriodStart.day,
+    );
     return target.difference(todayNorm).inDays;
   }
 
   int get daysUntilOvulation {
     final today = DateTime.now();
     final todayNorm = DateTime(today.year, today.month, today.day);
-    final target =
-        DateTime(ovulationDate.year, ovulationDate.month, ovulationDate.day);
+    final target = DateTime(
+      ovulationDate.year,
+      ovulationDate.month,
+      ovulationDate.day,
+    );
     return target.difference(todayNorm).inDays;
   }
 }
@@ -155,18 +161,18 @@ class CycleStatus {
   });
 
   static CycleStatus get empty => CycleStatus(
-        cycleDay: 1,
-        cycleLength: 28,
-        periodLength: 5,
-        phase: CyclePhase.unknown,
-        periodStartDate: DateTime.now(),
-        predictions: CyclePredictions(
-          nextPeriodStart: DateTime.now().add(const Duration(days: 28)),
-          fertileWindowStart: DateTime.now().add(const Duration(days: 11)),
-          fertileWindowEnd: DateTime.now().add(const Duration(days: 17)),
-          ovulationDate: DateTime.now().add(const Duration(days: 14)),
-        ),
-      );
+    cycleDay: 1,
+    cycleLength: 28,
+    periodLength: 5,
+    phase: CyclePhase.unknown,
+    periodStartDate: DateTime.now(),
+    predictions: CyclePredictions(
+      nextPeriodStart: DateTime.now().add(const Duration(days: 28)),
+      fertileWindowStart: DateTime.now().add(const Duration(days: 11)),
+      fertileWindowEnd: DateTime.now().add(const Duration(days: 17)),
+      ovulationDate: DateTime.now().add(const Duration(days: 14)),
+    ),
+  );
 }
 
 // ── Cycle Settings ───────────────────────────────────────────────────────────
@@ -186,18 +192,28 @@ class CycleSettings {
   });
 
   static CycleSettings get defaults => CycleSettings(
-        lastPeriodStart: DateTime.now(),
-        cycleLength: 28,
-        periodLength: 5,
-      );
+    lastPeriodStart: DateTime.now(),
+    cycleLength: 28,
+    periodLength: 5,
+  );
 
   factory CycleSettings.fromSetupFlowMap(Map<String, dynamic> map) {
-    final lastPeriodStartStr = map['lastPeriodStart'] as String?;
-    DateTime lastPeriodStart;
-    if (lastPeriodStartStr != null && lastPeriodStartStr.isNotEmpty) {
-      lastPeriodStart = DateTime.tryParse(lastPeriodStartStr) ?? DateTime.now();
-    } else {
-      lastPeriodStart = DateTime.now();
+    final dynamic rawStart = map['lastPeriodStart'] ?? map['periodStartDate'];
+    DateTime lastPeriodStart = DateTime.now();
+
+    if (rawStart is String && rawStart.isNotEmpty) {
+      lastPeriodStart = DateTime.tryParse(rawStart) ?? DateTime.now();
+    } else if (rawStart is int) {
+      lastPeriodStart = DateTime.fromMillisecondsSinceEpoch(rawStart);
+    } else if (rawStart != null) {
+      try {
+        final dynamic toDate = (rawStart as dynamic).toDate;
+        if (toDate is Function) {
+          lastPeriodStart = toDate() as DateTime;
+        }
+      } catch (_) {
+        lastPeriodStart = DateTime.now();
+      }
     }
 
     final cycleLength = (map['cycleLength'] as num?)?.toInt() ?? 28;
@@ -205,8 +221,8 @@ class CycleSettings {
 
     return CycleSettings(
       lastPeriodStart: lastPeriodStart,
-      cycleLength: cycleLength.clamp(15, 50),
-      periodLength: periodLength.clamp(1, 15),
+      cycleLength: cycleLength.clamp(15, 60),
+      periodLength: periodLength.clamp(2, 10),
     );
   }
 

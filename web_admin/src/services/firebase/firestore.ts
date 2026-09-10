@@ -10,7 +10,6 @@ import {
   deleteDoc,
   updateDoc,
   doc,
-  getCountFromServer,
   getDocs,
   query,
   orderBy,
@@ -81,9 +80,8 @@ export async function deleteVideo(videoId: string): Promise<void> {
 export async function getVideoCount(): Promise<number> {
   if (!db) return 0;
   try {
-    const videosRef = collection(db, FIRESTORE_COLLECTIONS.VIDEOS);
-    const snapshot = await getCountFromServer(videosRef);
-    return snapshot.data().count;
+    const videos = await getVideos();
+    return videos.length;
   } catch {
     return 0;
   }
@@ -98,10 +96,12 @@ export async function getVideos(): Promise<VideoRecord[]> {
     const videosRef = collection(db, FIRESTORE_COLLECTIONS.VIDEOS);
     const q = query(videosRef, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((docSnapshot) => ({
-      id: docSnapshot.id,
-      ...(docSnapshot.data() as Omit<VideoRecord, 'id'>),
-    }));
+    return snapshot.docs
+      .filter((docSnapshot) => !docSnapshot.id.startsWith('_settings'))
+      .map((docSnapshot) => ({
+        id: docSnapshot.id,
+        ...(docSnapshot.data() as Omit<VideoRecord, 'id'>),
+      }));
   } catch {
     return [];
   }
@@ -238,7 +238,7 @@ export async function getAllSubscriptionRequests(): Promise<SubscriptionRequestR
       });
     }
 
-    // Deduplicate: show only ONE distinct active request per user
+    // Deduplicate: show only ONE distinct request per user, prioritizing 'pending' status
     const distinctMap = new Map<string, SubscriptionRequestRecord>();
     for (const req of rawList) {
       if (!req.userId) continue;
@@ -246,8 +246,11 @@ export async function getAllSubscriptionRequests(): Promise<SubscriptionRequestR
         distinctMap.set(req.userId, req);
       } else {
         const existing = distinctMap.get(req.userId)!;
-        // Keep pending priority or newest request
-        if (existing.status !== 'pending' && req.status === 'pending') {
+        if (req.status === 'pending' && existing.status !== 'pending') {
+          distinctMap.set(req.userId, req);
+        } else if (req.status === 'approved' && existing.status !== 'pending' && existing.status !== 'approved') {
+          distinctMap.set(req.userId, req);
+        } else if (req.id === 'current' && existing.id !== 'current' && existing.status !== 'pending') {
           distinctMap.set(req.userId, req);
         }
       }
@@ -265,8 +268,11 @@ export async function getAllSubscriptionRequests(): Promise<SubscriptionRequestR
           collection(db, FIRESTORE_COLLECTIONS.USERS, uDoc.id, 'subscription_requests'),
         );
         if (!reqsSnap.empty) {
-          // Take the newest/first request for this user
-          const rDoc = reqsSnap.docs[0];
+          // Prioritize pending request doc if present, or doc 'current'
+          const docs = reqsSnap.docs;
+          const pendingDoc = docs.find((d) => (d.data().status || '').toLowerCase() === 'pending');
+          const currentDoc = docs.find((d) => d.id === 'current');
+          const rDoc = pendingDoc || currentDoc || docs[0];
           const rData = rDoc.data();
           const email = rData.userEmail || uData.email || '';
           const name = rData.displayName || uData.displayName || (email ? email.split('@')[0] : 'App User');
@@ -354,18 +360,42 @@ export async function revokeUserSubscription(
   requestId?: string,
 ): Promise<void> {
   if (!db) throw new Error('Firebase is not configured.');
+  if (!userId) return;
   try {
+    // 1. Update all requests under subcollection
     try {
       const userReqs = await getDocs(
         collection(db, FIRESTORE_COLLECTIONS.USERS, userId, 'subscription_requests'),
       );
       for (const rDoc of userReqs.docs) {
-        await updateDoc(rDoc.ref, {
-          status: 'cancelled',
-        });
+        await setDoc(
+          rDoc.ref,
+          { status: 'cancelled', revokedAt: serverTimestamp() },
+          { merge: true },
+        );
       }
     } catch {
-      if (requestId) {
+      // Fallback
+    }
+
+    // 2. Explicitly update 'current' doc
+    try {
+      const currentRef = doc(
+        db,
+        FIRESTORE_COLLECTIONS.USERS,
+        userId,
+        'subscription_requests',
+        'current',
+      );
+      await setDoc(
+        currentRef,
+        { status: 'cancelled', revokedAt: serverTimestamp() },
+        { merge: true },
+      );
+    } catch {}
+
+    if (requestId && requestId !== 'current') {
+      try {
         const reqRef = doc(
           db,
           FIRESTORE_COLLECTIONS.USERS,
@@ -373,12 +403,15 @@ export async function revokeUserSubscription(
           'subscription_requests',
           requestId,
         );
-        await updateDoc(reqRef, {
-          status: 'cancelled',
-        });
-      }
+        await setDoc(
+          reqRef,
+          { status: 'cancelled', revokedAt: serverTimestamp() },
+          { merge: true },
+        );
+      } catch {}
     }
 
+    // 3. Reset user entitlement in user document
     const userRef = doc(db, FIRESTORE_COLLECTIONS.USERS, userId);
     await setDoc(
       userRef,
@@ -404,8 +437,9 @@ export async function deleteSubscriptionRequest(
   requestId: string,
 ): Promise<void> {
   if (!db) throw new Error('Firebase is not configured.');
+  if (!userId) return;
   try {
-    // Delete all request documents under this user
+    // 1. Delete all request documents under subcollection
     try {
       const userReqs = await getDocs(
         collection(db, FIRESTORE_COLLECTIONS.USERS, userId, 'subscription_requests'),
@@ -413,18 +447,24 @@ export async function deleteSubscriptionRequest(
       for (const rDoc of userReqs.docs) {
         await deleteDoc(rDoc.ref);
       }
-    } catch {
-      const reqRef = doc(
-        db,
-        FIRESTORE_COLLECTIONS.USERS,
-        userId,
-        'subscription_requests',
-        requestId,
+    } catch {}
+
+    // 2. Explicitly delete 'current' doc and requestId doc
+    try {
+      await deleteDoc(
+        doc(db, FIRESTORE_COLLECTIONS.USERS, userId, 'subscription_requests', 'current'),
       );
-      await deleteDoc(reqRef);
+    } catch {}
+
+    if (requestId && requestId !== 'current') {
+      try {
+        await deleteDoc(
+          doc(db, FIRESTORE_COLLECTIONS.USERS, userId, 'subscription_requests', requestId),
+        );
+      } catch {}
     }
 
-    // Reset user doc entitlement
+    // 3. Reset user doc entitlement
     const userRef = doc(db, FIRESTORE_COLLECTIONS.USERS, userId);
     await setDoc(
       userRef,

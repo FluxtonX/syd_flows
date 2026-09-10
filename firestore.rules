@@ -22,6 +22,11 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // ── Dedicated Admin Users collection ──────────────
+    match /admin_users/{adminId} {
+      allow read, write: if true;
+    }
+
     // ── User documents ──────────────────────────────────────────
     match /users/{userId} {
       // Allow read for authenticated user, admin query, or admin documents
