@@ -74,5 +74,18 @@
 	<string>SYD FLOWS needs camera access to take a profile picture.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>SYD FLOWS needs photo library access to select a profile picture.</string>
+	<key>GIDClientID</key>
+	<string>943743637180-1mcevucecgd67clndbnqgr0ib1eeljjl.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.943743637180-1mcevucecgd67clndbnqgr0ib1eeljjl</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

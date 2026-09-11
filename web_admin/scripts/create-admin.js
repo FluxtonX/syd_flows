@@ -165,7 +165,6 @@ const req = https.request(options, async (res) => {
 
     await Promise.all([
       writeFirestoreDoc(`admin_users/${uid}`, userFields, idToken, projectId),
-      writeFirestoreDoc(`users/${uid}`, userFields, idToken, projectId),
       writeFirestoreDoc('videos/_settings_admin', settingsFields, idToken, projectId),
       writeFirestoreDoc('app_settings/admin_config', settingsFields, idToken, projectId),
     ]);

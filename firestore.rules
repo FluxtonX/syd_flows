@@ -8,6 +8,9 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null && (
         request.auth.uid == 'By5lDQtFBoNw95IfybB0d8DBwcw2' ||
+        (exists(/databases/$(database)/documents/admin_users/$(request.auth.uid)) &&
+         (get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == 'admin' ||
+          get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.isSuperAdmin == true)) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true))

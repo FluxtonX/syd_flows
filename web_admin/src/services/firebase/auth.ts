@@ -8,6 +8,7 @@ import {
   setDoc,
   getDoc,
   getDocs,
+  deleteDoc,
   collection,
   query,
   where,
@@ -168,7 +169,7 @@ export async function registerFirstAdminAccount(
 
     const docId = !existingSnap.empty ? existingSnap.docs[0].id : cleanDocId;
 
-    // 2. Save user document directly in dedicated admin_users collection
+    // 2. Save admin user document ONLY in dedicated admin_users collection
     const adminData = {
       uid: docId,
       email: cleanEmail,
@@ -180,10 +181,10 @@ export async function registerFirstAdminAccount(
       createdAt: serverTimestamp(),
     };
 
-    await Promise.all([
-      setDoc(doc(db, FIRESTORE_COLLECTIONS.ADMIN_USERS, docId), adminData, { merge: true }),
-      setDoc(doc(db, FIRESTORE_COLLECTIONS.USERS, docId), adminData, { merge: true }),
-    ]);
+    await setDoc(doc(db, FIRESTORE_COLLECTIONS.ADMIN_USERS, docId), adminData, { merge: true });
+
+    // Clean up any legacy admin docs from users collection
+    cleanupAdminFromUsersCollection().catch(() => {});
 
     // 3. Set setting marker for backward compatibility
     const updateMarker = {
@@ -361,11 +362,11 @@ export async function updateAdminPassword(
       updatedAt: serverTimestamp(),
     };
 
-    // Update password directly in both admin_users and users collections
-    await Promise.all([
-      setDoc(doc(db, FIRESTORE_COLLECTIONS.ADMIN_USERS, targetDocId), updatedData, { merge: true }),
-      setDoc(doc(db, FIRESTORE_COLLECTIONS.USERS, targetDocId), updatedData, { merge: true }),
-    ]);
+    // Update password directly ONLY in admin_users collection
+    await setDoc(doc(db, FIRESTORE_COLLECTIONS.ADMIN_USERS, targetDocId), updatedData, { merge: true });
+
+    // Clean up any legacy admin doc from users collection
+    cleanupAdminFromUsersCollection().catch(() => {});
 
     // Update settings marker
     const updateMarker = {
@@ -381,5 +382,26 @@ export async function updateAdminPassword(
   } catch (error: unknown) {
     if (error instanceof Error) throw error;
     throw new Error('Failed to update admin password in Firestore.');
+  }
+}
+
+/**
+ * Automatically cleans up any legacy admin credential documents accidentally written to the mobile app `users` collection.
+ */
+export async function cleanupAdminFromUsersCollection(): Promise<void> {
+  if (!db) return;
+  try {
+    const qUsersAdmin = query(
+      collection(db, FIRESTORE_COLLECTIONS.USERS),
+      where('role', '==', 'admin'),
+    );
+    const snap = await getDocs(qUsersAdmin);
+    for (const docSnap of snap.docs) {
+      if (docSnap.id.startsWith('admin_') || docSnap.data().role === 'admin') {
+        await deleteDoc(docSnap.ref);
+      }
+    }
+  } catch (err) {
+    console.warn('Cleanup of admin docs from users collection skipped:', err);
   }
 }

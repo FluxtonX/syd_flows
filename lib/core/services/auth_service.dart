@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../utils/helpers.dart';
@@ -67,7 +68,8 @@ class AuthService {
         return null;
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -77,6 +79,9 @@ class AuthService {
       return userCredential;
     } on FirebaseAuthException catch (e) {
       Helpers.log('Firebase Auth Error (Google): ${e.code} - ${e.message}');
+      rethrow;
+    } on PlatformException catch (e) {
+      Helpers.log('Platform Error (Google Sign-In): ${e.code} - ${e.message}');
       rethrow;
     } catch (e) {
       Helpers.log('Auth Error (Google): $e');
