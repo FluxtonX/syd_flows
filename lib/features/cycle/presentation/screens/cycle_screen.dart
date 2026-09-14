@@ -11,7 +11,7 @@ import '../widgets/cycle_provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/export_service.dart';
 import '../../data/models/cycle_types.dart';
-import '../../domain/cycle_calculator.dart';
+
 
 // CyclePhase and DayJournal are now imported from cycle_types.dart
 
@@ -37,37 +37,7 @@ class _CycleScreenState extends State<CycleScreen> {
     super.dispose();
   }
 
-  // Legacy: computes period start day from month entries (fallback only)
-  int _getPeriodStartDay(Map<int, DayJournal> entries) {
-    // Check for explicit period start first
-    final periodStartDays =
-        entries.entries
-            .where((e) => e.value.isPeriodStart)
-            .map((e) => e.key)
-            .toList()
-          ..sort();
-    if (periodStartDays.isNotEmpty) return periodStartDays.last;
 
-    // Fall back to flow days
-    final flowDays =
-        entries.entries
-            .where((e) => e.value.flow != null && e.value.flow!.isNotEmpty)
-            .map((e) => e.key)
-            .toList()
-          ..sort();
-    if (flowDays.isNotEmpty) {
-      int latestStart = flowDays.last;
-      for (int i = flowDays.length - 1; i > 0; i--) {
-        if (flowDays[i] - flowDays[i - 1] == 1) {
-          latestStart = flowDays[i - 1];
-        } else {
-          break;
-        }
-      }
-      return latestStart;
-    }
-    return 1;
-  }
 
   /// Returns the phase for [day] in the current calendar month using CycleCalculator.
   CyclePhase _getDayPhase(int day) {
@@ -77,12 +47,7 @@ class _CycleScreenState extends State<CycleScreen> {
       return cycleNotifier.phaseForCalendarDate(date);
     }
 
-    return CycleCalculator.phaseForDate(
-      date: date,
-      anchor: DateTime.now(),
-      cycleLength: 28,
-      periodLength: 5,
-    );
+    return CyclePhase.unknown;
   }
 
   Widget _buildFlowIndicator(String flow, bool isSelected) {
@@ -275,8 +240,6 @@ class _CycleScreenState extends State<CycleScreen> {
         final journalEntries = _viewModel.journalEntries;
         final showSuccessBanner = _viewModel.showSuccessBanner;
 
-        final periodStartDay = _getPeriodStartDay(journalEntries);
-
         final int daysInMonth = DateTime(
           _viewModel.currentYear,
           _viewModel.currentMonth + 1,
@@ -323,7 +286,6 @@ class _CycleScreenState extends State<CycleScreen> {
                         _buildCalendarCard(
                           calendarDays,
                           selectedDay,
-                          periodStartDay,
                         ),
                         AppSpacing.h24,
                         _buildSelectedDayDetailCard(
@@ -333,7 +295,7 @@ class _CycleScreenState extends State<CycleScreen> {
                           currentJournal,
                         ),
                         AppSpacing.h24,
-                        _buildPredictionsCard(periodStartDay),
+                        _buildPredictionsCard(),
                       ],
                     ),
                   ),
@@ -737,7 +699,6 @@ class _CycleScreenState extends State<CycleScreen> {
   Widget _buildCalendarCard(
     List<int> calendarDays,
     int selectedDay,
-    int periodStartDay,
   ) {
     final journalEntries = _viewModel.journalEntries;
 
@@ -1110,81 +1071,30 @@ class _CycleScreenState extends State<CycleScreen> {
   }
 
   // --- Predictions Card ---
-  Widget _buildPredictionsCard(int periodStartDay) {
+  Widget _buildPredictionsCard() {
     // Use CycleStateNotifier for accurate predictions
     final cycleNotifier = CycleProvider.ofNullable(context);
-    final predictions = cycleNotifier?.currentStatus.predictions;
+    final predictions = cycleNotifier?.currentStatus.predictions ?? CycleStatus.empty.predictions;
 
     String nextPeriodText;
     String fertileText;
     String ovulationText;
 
-    if (predictions != null) {
-      // Format using CycleStateNotifier predictions
-      final daysUntil = predictions.daysUntilNextPeriod;
-      final np = predictions.nextPeriodStart;
-      final npFormatted = '${_shortMonth(np.month)} ${np.day}';
-      nextPeriodText = daysUntil > 0
-          ? 'in $daysUntil days • $npFormatted'
-          : (daysUntil == 0 ? 'Today • $npFormatted' : npFormatted);
+    // Format using CycleStateNotifier predictions
+    final daysUntil = predictions.daysUntilNextPeriod;
+    final np = predictions.nextPeriodStart;
+    final npFormatted = '${_shortMonth(np.month)} ${np.day}';
+    nextPeriodText = daysUntil > 0
+        ? 'in $daysUntil days • $npFormatted'
+        : (daysUntil == 0 ? 'Today • $npFormatted' : npFormatted);
 
-      final fs = predictions.fertileWindowStart;
-      final fe = predictions.fertileWindowEnd;
-      fertileText =
-          '${_shortMonth(fs.month)} ${fs.day} – ${_shortMonth(fe.month)} ${fe.day}';
+    final fs = predictions.fertileWindowStart;
+    final fe = predictions.fertileWindowEnd;
+    fertileText =
+        '${_shortMonth(fs.month)} ${fs.day} – ${_shortMonth(fe.month)} ${fe.day}';
 
-      final ov = predictions.ovulationDate;
-      ovulationText = '${_shortMonth(ov.month)} ${ov.day}';
-    } else {
-      // Fallback to legacy month-scoped calculation
-      final monthShort = _viewModel.shortMonthName;
-      final nextMonthShort = _viewModel.nextShortMonthName;
-      final daysInMonth = DateTime(
-        _viewModel.currentYear,
-        _viewModel.currentMonth + 1,
-        0,
-      ).day;
-
-      final rawNextDay = periodStartDay + 28;
-      final isNextMonth = rawNextDay > daysInMonth;
-      final nextPeriodDay = isNextMonth
-          ? (rawNextDay - daysInMonth)
-          : rawNextDay;
-      final targetMonthName = isNextMonth ? nextMonthShort : monthShort;
-      final todayDay = DateTime.now().day;
-      final daysUntilNextPeriod = isNextMonth
-          ? (daysInMonth - todayDay + nextPeriodDay)
-          : (nextPeriodDay - todayDay);
-      nextPeriodText = daysUntilNextPeriod > 0
-          ? 'in $daysUntilNextPeriod days • $targetMonthName $nextPeriodDay'
-          : '$targetMonthName $nextPeriodDay';
-
-      final rawFertileStart = periodStartDay + 11;
-      final fertileStartDay = rawFertileStart > daysInMonth
-          ? rawFertileStart - daysInMonth
-          : rawFertileStart;
-      final fertileStartMonth = rawFertileStart > daysInMonth
-          ? nextMonthShort
-          : monthShort;
-      final rawFertileEnd = periodStartDay + 16;
-      final fertileEndDay = rawFertileEnd > daysInMonth
-          ? rawFertileEnd - daysInMonth
-          : rawFertileEnd;
-      final fertileEndMonth = rawFertileEnd > daysInMonth
-          ? nextMonthShort
-          : monthShort;
-      fertileText =
-          '$fertileStartMonth $fertileStartDay – $fertileEndMonth $fertileEndDay';
-
-      final rawOvulationDay = periodStartDay + 13;
-      final ovulationDay = rawOvulationDay > daysInMonth
-          ? rawOvulationDay - daysInMonth
-          : rawOvulationDay;
-      final ovulationMonth = rawOvulationDay > daysInMonth
-          ? nextMonthShort
-          : monthShort;
-      ovulationText = '$ovulationMonth $ovulationDay';
-    }
+    final ov = predictions.ovulationDate;
+    ovulationText = '${_shortMonth(ov.month)} ${ov.day}';
 
     return Container(
       padding: const EdgeInsets.all(20.0),

@@ -105,3 +105,8 @@ A comprehensive, step-by-step development manual for building and completing all
 - **MVVM Clean Separation**: Presentation layer (UI) must never call database or auth APIs directly; all requests flow through State Controllers and Domain Repositories.
 - **No Hardcoded Values**: Always reference central theme tokens for colors, typography, margins, and borders.
 - **User Privacy & Security**: Ensure database security rules restrict access so every user can only read/write their own personal data.
+
+
+
+
+./scripts/deploy_testflight.sh "Your commit message here"

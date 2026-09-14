@@ -222,118 +222,125 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Drag handle
-                Container(
-                  width: 36.0,
-                  height: 4.0,
-                  decoration: BoxDecoration(
-                    color: AppColors.wellnessBrown.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(2.0),
-                  ),
-                ),
-                AppSpacing.h24,
-
-                // Logout Icon Container
-                Container(
-                  width: 56.0,
-                  height: 56.0,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFD1DF),
-                    borderRadius: BorderRadius.circular(16.0),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.logout_rounded,
-                      color: AppColors.wellnessPinkText,
-                      size: 24.0,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag handle
+                  Container(
+                    width: 36.0,
+                    height: 4.0,
+                    decoration: BoxDecoration(
+                      color: AppColors.wellnessBrown.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(2.0),
                     ),
                   ),
-                ),
-                AppSpacing.h24,
+                  AppSpacing.h24,
 
-                // Title
-                Text(
-                  'Log Out?',
-                  style: AppTextStyles.titleLarge.copyWith(
-                    color: AppColors.wellnessBrown,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8.0),
-
-                // Description
-                Text(
-                  'Are you sure you want to log out of your SYD FLOWS account?',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.wellnessGray,
-                  ),
-                ),
-                AppSpacing.h24,
-
-                // Log out button
-                SizedBox(
-                  width: double.infinity,
-                  height: 48.0,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final navigator = Navigator.of(context, rootNavigator: true);
-                      navigator.pop(); // Close modal sheet
-                      await AuthService.instance.signOut();
-                      navigator.pushNamedAndRemoveUntil(
-                        RouteNames.auth,
-                        (route) => false,
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.wellnessBrown,
-                      foregroundColor: AppColors.white,
-                      elevation: 0,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: AppRadius.r16,
-                      ),
+                  // Logout Icon Container
+                  Container(
+                    width: 56.0,
+                    height: 56.0,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD1DF),
+                      borderRadius: BorderRadius.circular(16.0),
                     ),
-                    child: Text(
-                      'Log Out',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.white,
-                        fontWeight: FontWeight.bold,
+                    child: const Center(
+                      child: Icon(
+                        Icons.logout_rounded,
+                        color: AppColors.wellnessPinkText,
+                        size: 24.0,
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12.0),
+                  AppSpacing.h24,
 
-                // Cancel button
-                SizedBox(
-                  width: double.infinity,
-                  height: 48.0,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(context); // Close bottom sheet
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: AppColors.wellnessBrown.withValues(alpha: 0.15),
-                        width: 1.5,
-                      ),
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: AppRadius.r16,
-                      ),
+                  // Title
+                  Text(
+                    'Log Out?',
+                    style: AppTextStyles.titleLarge.copyWith(
+                      color: AppColors.wellnessBrown,
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: Text(
-                      'Cancel',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.wellnessBrown,
-                        fontWeight: FontWeight.bold,
+                  ),
+                  const SizedBox(height: 8.0),
+
+                  // Description
+                  Text(
+                    'Are you sure you want to log out of your SYD FLOWS account?',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.wellnessGray,
+                    ),
+                  ),
+                  AppSpacing.h24,
+
+                  // Log out button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48.0,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final navigator = Navigator.of(
+                          context,
+                          rootNavigator: true,
+                        );
+                        navigator.pop(); // Close modal sheet
+                        await AuthService.instance.signOut();
+                        navigator.pushNamedAndRemoveUntil(
+                          RouteNames.auth,
+                          (route) => false,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.wellnessBrown,
+                        foregroundColor: AppColors.white,
+                        elevation: 0,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadius.r16,
+                        ),
+                      ),
+                      child: Text(
+                        'Log Out',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12.0),
+
+                  // Cancel button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48.0,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(context); // Close bottom sheet
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: AppColors.wellnessBrown.withValues(
+                            alpha: 0.15,
+                          ),
+                          width: 1.5,
+                        ),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadius.r16,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.wellnessBrown,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

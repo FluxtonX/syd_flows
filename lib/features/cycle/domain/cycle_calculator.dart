@@ -37,7 +37,7 @@ class CycleCalculator {
     final DateTime anchorNorm = _dateOnly(anchor);
 
     final int rawDiff = todayNorm.difference(anchorNorm).inDays;
-    final int cycleDay = (rawDiff % settings.cycleLength) + 1;
+    final int cycleDay = rawDiff + 1;
 
     // Determine effective period length for current cycle.
     final int effectivePeriodLength = _effectivePeriodLengthForCycle(
@@ -418,7 +418,7 @@ class CycleCalculator {
     }
 
     final int rawDiff = dateNorm.difference(anchorNorm).inDays;
-    final int cycleDay = (rawDiff % cycleLength) + 1;
+    final int cycleDay = rawDiff + 1;
     return _computePhase(
       cycleDay: cycleDay,
       cycleLength: cycleLength,
@@ -435,6 +435,11 @@ class CycleCalculator {
     final DateTime dateNorm = _dateOnly(date);
     final DateTime anchorNorm = _dateOnly(anchor);
     final int rawDiff = dateNorm.difference(anchorNorm).inDays;
-    return (rawDiff % cycleLength) + 1;
+    if (rawDiff < 0) {
+      final int daysBack = (-rawDiff) % cycleLength;
+      if (daysBack == 0) return 1;
+      return cycleLength - daysBack + 1;
+    }
+    return rawDiff + 1;
   }
 }
