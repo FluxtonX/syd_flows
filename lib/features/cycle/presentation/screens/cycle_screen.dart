@@ -336,9 +336,9 @@ class _CycleScreenState extends State<CycleScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28.0)),
       ),
-      builder: (context) {
+      builder: (modalContext) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (modalContext, setModalState) {
             return SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 24.0),
@@ -506,7 +506,7 @@ class _CycleScreenState extends State<CycleScreen> {
 
                                 try {
                                   final notifier = CycleProvider.of(
-                                    this.context,
+                                    context,
                                   );
                                   final result = await ExportService.instance
                                       .exportCycleLogsCsv(
@@ -517,9 +517,11 @@ class _CycleScreenState extends State<CycleScreen> {
                                       );
 
                                   if (mounted) {
-                                    Navigator.pop(context);
+                                    if (modalContext.mounted) {
+                                      Navigator.pop(modalContext);
+                                    }
                                     ScaffoldMessenger.of(
-                                      this.context,
+                                      context,
                                     ).showSnackBar(
                                       SnackBar(
                                         content: Text(
@@ -534,7 +536,7 @@ class _CycleScreenState extends State<CycleScreen> {
                                   setModalState(() => isExporting = false);
                                   if (mounted) {
                                     ScaffoldMessenger.of(
-                                      this.context,
+                                      context,
                                     ).showSnackBar(
                                       SnackBar(
                                         content: Text('Export failed: $e'),

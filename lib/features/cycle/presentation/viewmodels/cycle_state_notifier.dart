@@ -170,12 +170,18 @@ class CycleStateNotifier extends ChangeNotifier {
       periodLength: effectivePeriodLength,
     );
 
+    final CycleStatistics stats = CycleCalculator.computeStatistics(
+      confirmedStarts: confirmedStarts,
+      fallbackLength: _settings.cycleLength,
+    );
+
     try {
       _currentStatus = CycleCalculator.compute(
         settings: updatedSettings,
         today: today,
         confirmedPeriodStart: confirmedAnchor,
         allLogs: _allLogs,
+        stats: stats,
       );
       _isLoading = false;
       _error = null;

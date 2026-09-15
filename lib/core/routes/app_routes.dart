@@ -17,9 +17,9 @@ class AppRoutes {
       RouteNames.setupFlow: (context) => const SetupFlowScreen(),
       RouteNames.home: (context) => const HomeScreen(),
       RouteNames.cycle: (context) => const CycleScreen(),
-      RouteNames.workout: (context) => const SizedBox.shrink(),      // TODO: Bind Workout screen
-      RouteNames.progress: (context) => const SizedBox.shrink(),     // TODO: Bind Progress screen
-      RouteNames.profile: (context) => const SizedBox.shrink(),      // TODO: Bind Profile screen
+      RouteNames.workout: (context) => const SizedBox.shrink(),
+      RouteNames.progress: (context) => const SizedBox.shrink(),
+      RouteNames.profile: (context) => const SizedBox.shrink(),
       RouteNames.notifications: (context) => const NotificationsScreen(),
     };
   }
@@ -27,16 +27,11 @@ class AppRoutes {
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     final builder = routes[settings.name];
     if (builder != null) {
-      return MaterialPageRoute(
-        builder: builder,
-        settings: settings,
-      );
+      return MaterialPageRoute(builder: builder, settings: settings);
     }
     return MaterialPageRoute(
       builder: (context) => Scaffold(
-        body: Center(
-          child: Text('No route defined for ${settings.name}'),
-        ),
+        body: Center(child: Text('No route defined for ${settings.name}')),
       ),
     );
   }

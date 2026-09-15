@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'cycle_types.dart';
 
 /// PeriodRecord represents a CONFIRMED period start event.
 ///
@@ -19,6 +20,12 @@ class PeriodRecord {
   /// Duration in days (calculated or user-provided).
   final int? duration;
 
+  /// Source authority of this period record (user_confirmed, user_corrected, etc.)
+  final PeriodSource source;
+
+  /// Confidence rating (0.0 to 1.0, defaults to 1.0 for user observations)
+  final double confidence;
+
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -27,6 +34,8 @@ class PeriodRecord {
     required this.startDate,
     this.endDate,
     this.duration,
+    this.source = PeriodSource.userConfirmed,
+    this.confidence = 1.0,
     required this.createdAt,
     this.updatedAt,
   });
@@ -57,11 +66,17 @@ class PeriodRecord {
         ? updatedAtTs.toDate()
         : null;
 
+    final sourceStr = data['source'] as String?;
+    final source = PeriodSource.parse(sourceStr);
+    final confidence = (data['confidence'] as num?)?.toDouble() ?? 1.0;
+
     return PeriodRecord(
       id: doc.id,
       startDate: startDate,
       endDate: endDate,
       duration: (data['duration'] as num?)?.toInt(),
+      source: source,
+      confidence: confidence,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -73,6 +88,8 @@ class PeriodRecord {
       'startDate': _toDateKey(startDate),
       if (endDate != null) 'endDate': _toDateKey(endDate!),
       if (duration != null) 'duration': duration,
+      'source': source.label,
+      'confidence': confidence,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };

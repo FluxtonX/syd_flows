@@ -6,12 +6,7 @@ import '../../features/cycle/domain/cycle_calculator.dart';
 import '../utils/helpers.dart';
 import 'cycle_service.dart';
 
-enum ExportDateRange {
-  currentMonth,
-  last3Months,
-  last6Months,
-  allTime,
-}
+enum ExportDateRange { currentMonth, last3Months, last6Months, allTime }
 
 extension ExportDateRangeExtension on ExportDateRange {
   String get label {
@@ -100,12 +95,14 @@ class ExportService {
                 (date.month == today.month && date.year == today.year);
             break;
           case ExportDateRange.last3Months:
-            includeDate =
-                date.isAfter(today.subtract(const Duration(days: 90)));
+            includeDate = date.isAfter(
+              today.subtract(const Duration(days: 90)),
+            );
             break;
           case ExportDateRange.last6Months:
-            includeDate =
-                date.isAfter(today.subtract(const Duration(days: 180)));
+            includeDate = date.isAfter(
+              today.subtract(const Duration(days: 180)),
+            );
             break;
           case ExportDateRange.allTime:
             includeDate = true;

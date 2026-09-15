@@ -47,6 +47,41 @@ enum CyclePhase {
   }
 }
 
+enum PeriodSource {
+  userConfirmed,
+  userCorrected,
+  observedFlow,
+  inferred;
+
+  String get label {
+    switch (this) {
+      case PeriodSource.userConfirmed:
+        return 'user_confirmed';
+      case PeriodSource.userCorrected:
+        return 'user_corrected';
+      case PeriodSource.observedFlow:
+        return 'observed_flow';
+      case PeriodSource.inferred:
+        return 'inferred';
+    }
+  }
+
+  static PeriodSource parse(String? value) {
+    switch (value) {
+      case 'user_confirmed':
+        return PeriodSource.userConfirmed;
+      case 'user_corrected':
+        return PeriodSource.userCorrected;
+      case 'observed_flow':
+        return PeriodSource.observedFlow;
+      case 'inferred':
+        return PeriodSource.inferred;
+      default:
+        return PeriodSource.userConfirmed;
+    }
+  }
+}
+
 // ── Day Journal ──────────────────────────────────────────────────────────────
 
 /// Daily cycle journal entry data model.
@@ -60,6 +95,9 @@ class DayJournal {
   /// Whether this entry marks the confirmed start of a new period cycle.
   final bool isPeriodStart;
 
+  /// Whether this entry marks the confirmed end of the active period.
+  final bool isPeriodEnd;
+
   DayJournal({
     this.flow,
     required this.moods,
@@ -67,7 +105,22 @@ class DayJournal {
     required this.energy,
     required this.notes,
     this.isPeriodStart = false,
+    this.isPeriodEnd = false,
   });
+
+  /// True ONLY if actual menstrual bleeding is reported ('heavy', 'medium', 'light').
+  /// False for 'none', 'spotting', null, or empty string.
+  bool get isBleeding {
+    if (flow == null || flow!.isEmpty) return false;
+    final f = flow!.toLowerCase();
+    return f != 'none' && f != 'spotting';
+  }
+
+  /// True if light spotting is reported (distinguished from active menstrual flow).
+  bool get isSpotting {
+    if (flow == null || flow!.isEmpty) return false;
+    return flow!.toLowerCase() == 'spotting';
+  }
 
   bool get isEmpty =>
       (flow == null || flow!.isEmpty) &&
@@ -96,6 +149,148 @@ class DayJournal {
   }
 }
 
+// ── Period Event ─────────────────────────────────────────────────────────────
+
+/// Conceptual model for period intervals distinguishing observed vs predicted data.
+class PeriodEvent {
+  final DateTime startDate;
+  final DateTime? endDate;
+  final PeriodSource source;
+  final double confidence;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  const PeriodEvent({
+    required this.startDate,
+    this.endDate,
+    this.source = PeriodSource.userConfirmed,
+    this.confidence = 1.0,
+    required this.createdAt,
+    this.updatedAt,
+  });
+}
+
+// ── Prediction Confidence ────────────────────────────────────────────────────
+
+/// Confidence level for algorithmic cycle predictions.
+enum PredictionConfidence {
+  insufficient,
+  low,
+  medium,
+  high;
+
+  String get label {
+    switch (this) {
+      case PredictionConfidence.insufficient:
+        return 'Insufficient Data';
+      case PredictionConfidence.low:
+        return 'Low';
+      case PredictionConfidence.medium:
+        return 'Medium';
+      case PredictionConfidence.high:
+        return 'High';
+    }
+  }
+}
+
+// ── Confidence Score Value Object ────────────────────────────────────────────
+
+/// Unified deterministic confidence score breakdown (Phase 6 Engine).
+class ConfidenceScore {
+  final PredictionConfidence rating;
+  final int cycleCount;
+  final double variability;
+  final double dataCompleteness;
+  final int currentCycleDeviation;
+  final String explanation;
+
+  const ConfidenceScore({
+    required this.rating,
+    required this.cycleCount,
+    required this.variability,
+    required this.dataCompleteness,
+    required this.currentCycleDeviation,
+    required this.explanation,
+  });
+}
+
+// ── Period Prediction Value Object ───────────────────────────────────────────
+
+/// Comprehensive prediction model for the next period including range and uncertainty (Phase 3).
+class PeriodPrediction {
+  final DateTime predictedDate;
+  final DateTime earliestDate;
+  final DateTime latestDate;
+  final PredictionConfidence confidence;
+  final String rangeDisplay;
+
+  const PeriodPrediction({
+    required this.predictedDate,
+    required this.earliestDate,
+    required this.latestDate,
+    required this.confidence,
+    required this.rangeDisplay,
+  });
+}
+
+// ── Ovulation Basis ───────────────────────────────────────────────────────────
+
+/// Source authority for ovulation estimations.
+enum OvulationBasis {
+  calendarEstimate,
+  historicalPattern,
+  userObservation;
+
+  String get label {
+    switch (this) {
+      case OvulationBasis.calendarEstimate:
+        return 'Calendar Estimate';
+      case OvulationBasis.historicalPattern:
+        return 'Historical Pattern';
+      case OvulationBasis.userObservation:
+        return 'User Observation';
+    }
+  }
+}
+
+// ── Ovulation Estimation Value Object ────────────────────────────────────────
+
+/// Comprehensive estimation model for ovulation including uncertainty range & basis (Phase 4).
+class OvulationEstimation {
+  final DateTime estimatedOvulationDate;
+  final DateTime earliestPossibleDate;
+  final DateTime latestPossibleDate;
+  final PredictionConfidence confidence;
+  final OvulationBasis basis;
+
+  const OvulationEstimation({
+    required this.estimatedOvulationDate,
+    required this.earliestPossibleDate,
+    required this.latestPossibleDate,
+    required this.confidence,
+    this.basis = OvulationBasis.calendarEstimate,
+  });
+}
+
+// ── Fertile Window Value Object ───────────────────────────────────────────────
+
+/// Comprehensive estimation model for fertile window including ovulation uncertainty (Phase 5).
+class FertileWindowEstimation {
+  final DateTime fertileWindowStart;
+  final DateTime fertileWindowEnd;
+  final PredictionConfidence confidence;
+  final OvulationBasis basis;
+  final String rangeDisplay;
+
+  const FertileWindowEstimation({
+    required this.fertileWindowStart,
+    required this.fertileWindowEnd,
+    required this.confidence,
+    required this.basis,
+    required this.rangeDisplay,
+  });
+}
+
 // ── Cycle Predictions ────────────────────────────────────────────────────────
 
 /// Predicted upcoming cycle dates.
@@ -105,11 +300,33 @@ class CyclePredictions {
   final DateTime fertileWindowEnd;
   final DateTime ovulationDate;
 
+  // Phase 3 additive fields for range & uncertainty
+  final DateTime? earliestPeriodStart;
+  final DateTime? latestPeriodStart;
+  final PredictionConfidence confidence;
+  final PeriodPrediction? periodPrediction;
+
+  // Phase 4 additive fields for ovulation estimation
+  final OvulationEstimation? ovulationEstimation;
+
+  // Phase 5 additive fields for fertile window estimation
+  final FertileWindowEstimation? fertileWindowEstimation;
+
+  // Phase 10 additive field for explicit engine versioning
+  final String algorithmVersion;
+
   const CyclePredictions({
     required this.nextPeriodStart,
     required this.fertileWindowStart,
     required this.fertileWindowEnd,
     required this.ovulationDate,
+    this.earliestPeriodStart,
+    this.latestPeriodStart,
+    this.confidence = PredictionConfidence.medium,
+    this.periodPrediction,
+    this.ovulationEstimation,
+    this.fertileWindowEstimation,
+    this.algorithmVersion = '2.0',
   });
 
   int get daysUntilNextPeriod {
@@ -135,6 +352,80 @@ class CyclePredictions {
   }
 }
 
+// ── Phase Nature ─────────────────────────────────────────────────────────────
+
+/// Distinguishes direct observation vs active estimation vs future prediction (Phase 7).
+enum PhaseNature {
+  observed,
+  estimated,
+  predicted;
+
+  String get label {
+    switch (this) {
+      case PhaseNature.observed:
+        return 'Observed';
+      case PhaseNature.estimated:
+        return 'Estimated';
+      case PhaseNature.predicted:
+        return 'Predicted';
+    }
+  }
+}
+
+// ── Estimated Cycle Phase Value Object ───────────────────────────────────────
+
+/// Medically safe estimation model for cycle phases (Phase 7 Engine).
+///
+/// Never generates direct claims of hormone levels (e.g. "Estrogen is rising").
+class EstimatedCyclePhase {
+  final CyclePhase phase;
+  final PhaseNature nature;
+  final PredictionConfidence confidence;
+  final String safeDisplayName;
+  final DateTime startDate;
+  final DateTime endDate;
+  final bool isStale;
+
+  const EstimatedCyclePhase({
+    required this.phase,
+    required this.nature,
+    required this.confidence,
+    required this.safeDisplayName,
+    required this.startDate,
+    required this.endDate,
+    this.isStale = false,
+  });
+}
+
+// ── Cycle State Category ──────────────────────────────────────────────────────
+
+/// Internal cycle state classification for late, missed, or ongoing cycles (Phase 8).
+enum CycleStateCategory {
+  active,
+  expected,
+  late,
+  confirmed,
+  irregular,
+  insufficientData;
+
+  String get label {
+    switch (this) {
+      case CycleStateCategory.active:
+        return 'Active';
+      case CycleStateCategory.expected:
+        return 'Expected';
+      case CycleStateCategory.late:
+        return 'Late';
+      case CycleStateCategory.confirmed:
+        return 'Confirmed';
+      case CycleStateCategory.irregular:
+        return 'Irregular';
+      case CycleStateCategory.insufficientData:
+        return 'Insufficient Data';
+    }
+  }
+}
+
 // ── Cycle Status ─────────────────────────────────────────────────────────────
 
 /// Complete computed cycle state for today.
@@ -148,6 +439,16 @@ class CycleStatus {
   final CyclePredictions predictions;
   final DateTime periodStartDate;
 
+  // Phase 7 additive field for safe phase estimation metadata
+  final EstimatedCyclePhase? estimatedPhase;
+
+  // Phase 8 additive fields for late/missed/stale cycle handling
+  final CycleStateCategory stateCategory;
+  final int overdueDays;
+
+  // Phase 10 additive field for explicit engine versioning
+  final String algorithmVersion;
+
   double get progress => (cycleDay / cycleLength).clamp(0.0, 1.0);
   int get daysRemaining => (cycleLength - cycleDay).clamp(0, cycleLength);
 
@@ -158,6 +459,10 @@ class CycleStatus {
     required this.phase,
     required this.predictions,
     required this.periodStartDate,
+    this.estimatedPhase,
+    this.stateCategory = CycleStateCategory.active,
+    this.overdueDays = 0,
+    this.algorithmVersion = '2.0',
   });
 
   static CycleStatus get empty => CycleStatus(
@@ -166,6 +471,8 @@ class CycleStatus {
     periodLength: 5,
     phase: CyclePhase.unknown,
     periodStartDate: DateTime.now(),
+    stateCategory: CycleStateCategory.active,
+    overdueDays: 0,
     predictions: CyclePredictions(
       nextPeriodStart: DateTime.now().add(const Duration(days: 28)),
       fertileWindowStart: DateTime.now().add(const Duration(days: 11)),
@@ -239,4 +546,69 @@ class CycleSettings {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+}
+
+// ── Cycle Regularity ─────────────────────────────────────────────────────────
+
+/// Classification of historical cycle regularity based on standard deviation.
+enum RegularityClass {
+  insufficientData,
+  regular,
+  slightlyVariable,
+  variable,
+  highlyVariable;
+
+  String get label {
+    switch (this) {
+      case RegularityClass.insufficientData:
+        return 'Insufficient Data';
+      case RegularityClass.regular:
+        return 'Regular';
+      case RegularityClass.slightlyVariable:
+        return 'Slightly Variable';
+      case RegularityClass.variable:
+        return 'Variable';
+      case RegularityClass.highlyVariable:
+        return 'Highly Variable';
+    }
+  }
+}
+
+// ── Historical Cycle Statistics ──────────────────────────────────────────────
+
+/// Comprehensive historical statistics for user cycle history (Phase 2 engine).
+class CycleStatistics {
+  final int cycleCount;
+  final double? medianCycleLength;
+  final double? meanCycleLength;
+  final int? minimumCycleLength;
+  final int? maximumCycleLength;
+  final double cycleVariability;
+  final List<int> recentCycleLengths;
+  final RegularityClass regularityClass;
+  final double? weightedRecencyLength;
+
+  const CycleStatistics({
+    required this.cycleCount,
+    this.medianCycleLength,
+    this.meanCycleLength,
+    this.minimumCycleLength,
+    this.maximumCycleLength,
+    required this.cycleVariability,
+    required this.recentCycleLengths,
+    required this.regularityClass,
+    this.weightedRecencyLength,
+  });
+
+  static CycleStatistics empty(int fallbackLength) => CycleStatistics(
+    cycleCount: 0,
+    medianCycleLength: fallbackLength.toDouble(),
+    meanCycleLength: fallbackLength.toDouble(),
+    minimumCycleLength: fallbackLength,
+    maximumCycleLength: fallbackLength,
+    cycleVariability: 0.0,
+    recentCycleLengths: const [],
+    regularityClass: RegularityClass.insufficientData,
+    weightedRecencyLength: fallbackLength.toDouble(),
+  );
 }
