@@ -260,6 +260,7 @@ class _CycleScreenState extends State<CycleScreen> {
         final currentPhase = _getDayPhase(selectedDay);
         final hasEntry = journalEntries.containsKey(selectedDay);
         final currentJournal = journalEntries[selectedDay];
+        final cycleNotifier = CycleProvider.ofNullable(context);
 
         return Scaffold(
           backgroundColor: AppColors.transparent,
@@ -282,7 +283,11 @@ class _CycleScreenState extends State<CycleScreen> {
                       children: [
                         AppSpacing.h16,
                         _buildAppBar(),
-                        AppSpacing.h24,
+                        AppSpacing.h16,
+                        _buildActivePeriodBanner(
+                          cycleNotifier?.currentStatus ?? CycleStatus.empty,
+                        ),
+                        _buildNewPeriodBanner(),
                         _buildCalendarCard(
                           calendarDays,
                           selectedDay,
@@ -584,6 +589,325 @@ class _CycleScreenState extends State<CycleScreen> {
           },
         );
       },
+    );
+  }
+
+  Future<void> _stopPeriodToday() async {
+    final now = DateTime.now();
+    final todayDay = now.day;
+    final currentJournal = _viewModel.journalEntries[todayDay] ??
+        DayJournal(moods: [], symptoms: [], energy: 0.6, notes: '');
+
+    final updatedJournal = DayJournal(
+      flow: 'none',
+      moods: currentJournal.moods,
+      symptoms: currentJournal.symptoms,
+      energy: currentJournal.energy,
+      notes: currentJournal.notes,
+      isPeriodStart: false,
+      isPeriodEnd: true,
+    );
+
+    await _viewModel.saveLog(todayDay, updatedJournal);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Period stopped! Dynamic cycle updated. 🌸'),
+          duration: Duration(seconds: 3),
+          backgroundColor: AppColors.wellnessBrown,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  /// Logs today as the start of a new period cycle.
+  ///
+  /// Writes `isPeriodStart: true` to both the cycle_log and the periods
+  /// subcollection. [CycleStateNotifier] picks this up instantly via its
+  /// real-time stream, shifts the confirmed anchor to today, and recomputes
+  /// all phases and predictions from the new Day 1.
+  Future<void> _startNewPeriodToday() async {
+    final now = DateTime.now();
+    final todayDay = now.day;
+    final currentJournal = _viewModel.journalEntries[todayDay] ??
+        DayJournal(moods: [], symptoms: [], energy: 0.6, notes: '');
+
+    // Preserve any existing journal data (moods, symptoms, etc.) but force
+    // isPeriodStart = true and clear any leftover isPeriodEnd flag.
+    final updatedJournal = DayJournal(
+      flow: currentJournal.flow,
+      moods: currentJournal.moods,
+      symptoms: currentJournal.symptoms,
+      energy: currentJournal.energy,
+      notes: currentJournal.notes,
+      isPeriodStart: true,
+      isPeriodEnd: false,
+    );
+
+    await _viewModel.saveLog(todayDay, updatedJournal);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('New period started! Cycle updated from today. 🌸'),
+          duration: Duration(seconds: 3),
+          backgroundColor: AppColors.wellnessBrown,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Widget _buildActivePeriodBanner(CycleStatus currentStatus) {
+    // Use the authoritative hasActivePeriod getter instead of the raw phase.
+    // hasActivePeriod is false when:
+    //   • No confirmed period start exists (prediction only — never show banner)
+    //   • The user has already logged isPeriodEnd for the active cycle
+    final cycleNotifier = CycleProvider.ofNullable(context);
+    if (cycleNotifier == null || !cycleNotifier.hasActivePeriod) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.m),
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.phaseMenstrual.withValues(alpha: 0.12),
+            AppColors.wellnessBeige.withValues(alpha: 0.25),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: AppRadius.r16,
+        border: Border.all(
+          color: AppColors.phaseMenstrual.withValues(alpha: 0.3),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.phaseMenstrual.withValues(alpha: 0.08),
+            blurRadius: 12.0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10.0),
+            decoration: BoxDecoration(
+              color: AppColors.phaseMenstrual.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.water_drop_rounded,
+              color: AppColors.phaseMenstrual,
+              size: 22.0,
+            ),
+          ),
+          const SizedBox(width: 12.0),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Active Period • Day ${currentStatus.cycleDay}',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    color: AppColors.wellnessBrown,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14.0,
+                  ),
+                ),
+                const SizedBox(height: 2.0),
+                Text(
+                  'Period predicted/active. Tap to stop cycle when flow ends.',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.wellnessGray,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10.0),
+          GestureDetector(
+            onTap: _stopPeriodToday,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14.0,
+                vertical: 8.0,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.phaseMenstrual,
+                borderRadius: AppRadius.r12,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.phaseMenstrual.withValues(alpha: 0.35),
+                    blurRadius: 8.0,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.stop_circle_rounded,
+                    color: AppColors.white,
+                    size: 15.0,
+                  ),
+                  const SizedBox(width: 5.0),
+                  Text(
+                    'Stop Period',
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12.0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shows a "Period started today?" card when there is NO active period.
+  ///
+  /// Visibility rules (ALL must be true):
+  ///   • [hasActivePeriod] is false (no ongoing confirmed period)
+  ///   • The user has at least one prior confirmed cycle anchor
+  ///     (avoids showing on fresh accounts before onboarding data propagates)
+  ///
+  /// Tapping "Period Started" calls [_startNewPeriodToday], which writes the
+  /// new anchor and lets CycleStateNotifier immediately recompute everything.
+  Widget _buildNewPeriodBanner() {
+    final cycleNotifier = CycleProvider.ofNullable(context);
+    if (cycleNotifier == null) return const SizedBox.shrink();
+
+    // Only show when period is NOT currently active
+    if (cycleNotifier.hasActivePeriod) return const SizedBox.shrink();
+
+    // Only show after at least one confirmed cycle exists
+    // (ensures onboarding data has propagated; avoids confusing brand-new users)
+    if (cycleNotifier.currentStatus.phase == CyclePhase.unknown) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.m),
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.phaseFollicular.withValues(alpha: 0.10),
+            AppColors.wellnessBeige.withValues(alpha: 0.20),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: AppRadius.r16,
+        border: Border.all(
+          color: AppColors.wellnessBrown.withValues(alpha: 0.15),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.wellnessBrown.withValues(alpha: 0.05),
+            blurRadius: 12.0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10.0),
+            decoration: BoxDecoration(
+              color: AppColors.wellnessBrown.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.water_drop_outlined,
+              color: AppColors.wellnessBrown,
+              size: 22.0,
+            ),
+          ),
+          const SizedBox(width: 12.0),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Did your period start today?',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    color: AppColors.wellnessBrown,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                  ),
+                ),
+                const SizedBox(height: 2.0),
+                Text(
+                  'Tap to set today as your new Cycle Day 1.',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.wellnessGray,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10.0),
+          GestureDetector(
+            onTap: _startNewPeriodToday,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14.0,
+                vertical: 8.0,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.wellnessBrown,
+                borderRadius: AppRadius.r12,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.wellnessBrown.withValues(alpha: 0.30),
+                    blurRadius: 8.0,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.play_circle_rounded,
+                    color: AppColors.white,
+                    size: 15.0,
+                  ),
+                  const SizedBox(width: 5.0),
+                  Text(
+                    'Start',
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12.0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1237,6 +1561,7 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
   final Set<String> _selectedSymptoms = {};
   double _energy = 0.6;
   bool _isPeriodStart = false;
+  bool _isPeriodEnd = false;
   late final TextEditingController _notesController;
 
   @override
@@ -1247,6 +1572,7 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
     _selectedSymptoms.addAll(widget.initialJournal.symptoms);
     _energy = widget.initialJournal.energy;
     _isPeriodStart = widget.initialJournal.isPeriodStart;
+    _isPeriodEnd = widget.initialJournal.isPeriodEnd;
     _notesController = TextEditingController(text: widget.initialJournal.notes);
   }
 
@@ -1492,7 +1818,10 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
             const SizedBox(height: 10.0),
             // Period Started Today toggle (Sleek Inline Toggle Card)
             GestureDetector(
-              onTap: () => setState(() => _isPeriodStart = !_isPeriodStart),
+              onTap: () => setState(() {
+                _isPeriodStart = !_isPeriodStart;
+                if (_isPeriodStart) _isPeriodEnd = false;
+              }),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14.0,
@@ -1554,9 +1883,100 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
                       scale: 0.8,
                       child: Switch.adaptive(
                         value: _isPeriodStart,
-                        onChanged: (val) =>
-                            setState(() => _isPeriodStart = val),
+                        onChanged: (val) => setState(() {
+                          _isPeriodStart = val;
+                          if (_isPeriodStart) _isPeriodEnd = false;
+                        }),
                         activeTrackColor: AppColors.phaseMenstrual,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8.0),
+            // Period Ended Today toggle (Stop Cycle Card)
+            GestureDetector(
+              onTap: () => setState(() {
+                _isPeriodEnd = !_isPeriodEnd;
+                if (_isPeriodEnd) {
+                  _isPeriodStart = false;
+                  if (_selectedFlow == null || _selectedFlow!.isEmpty) {
+                    _selectedFlow = 'none';
+                  }
+                }
+              }),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14.0,
+                  vertical: 8.0,
+                ),
+                decoration: BoxDecoration(
+                  color: _isPeriodEnd
+                      ? AppColors.phaseFollicular.withValues(alpha: 0.12)
+                      : AppColors.white,
+                  borderRadius: AppRadius.r12,
+                  border: Border.all(
+                    color: _isPeriodEnd
+                        ? AppColors.phaseFollicular
+                        : AppColors.wellnessBeige.withValues(alpha: 0.3),
+                    width: 1.2,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.stop_circle_rounded,
+                      color: _isPeriodEnd
+                          ? AppColors.phaseFollicular
+                          : AppColors.wellnessBeige,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8.0),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Period ended today',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.wellnessBrown,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.0,
+                            ),
+                          ),
+                          if (_isPeriodEnd)
+                            Text(
+                              'Stops cycle & starts Follicular phase',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.labelSmall.copyWith(
+                                color: AppColors.phaseFollicular,
+                                fontSize: 10.0,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8.0),
+                    Transform.scale(
+                      scale: 0.8,
+                      child: Switch.adaptive(
+                        value: _isPeriodEnd,
+                        onChanged: (val) => setState(() {
+                          _isPeriodEnd = val;
+                          if (_isPeriodEnd) {
+                            _isPeriodStart = false;
+                            if (_selectedFlow == null || _selectedFlow!.isEmpty) {
+                              _selectedFlow = 'none';
+                            }
+                          }
+                        }),
+                        activeTrackColor: AppColors.phaseFollicular,
                       ),
                     ),
                   ],
@@ -1826,6 +2246,7 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
                   energy: _energy,
                   notes: _notesController.text,
                   isPeriodStart: _isPeriodStart,
+                  isPeriodEnd: _isPeriodEnd,
                 );
                 Navigator.pop(context, journal);
               },

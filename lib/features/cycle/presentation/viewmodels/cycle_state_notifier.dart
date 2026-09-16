@@ -32,6 +32,46 @@ class CycleStateNotifier extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  /// True ONLY when the user has an actively confirmed, running period.
+  ///
+  /// Conditions that must ALL be true:
+  ///   1. There is at least one confirmed period start (PeriodRecord subcollection
+  ///      OR a cycle_log with isPeriodStart == true).
+  ///   2. The current phase is Menstrual (algorithm agrees we are inside the window).
+  ///   3. No `isPeriodEnd` log exists within the active cycle window (anchor → anchor + 14d).
+  ///
+  /// This is the single gating condition for the "Active Period / Stop Period" banner.
+  /// Purely algorithmic phase predictions NEVER trigger this getter.
+  bool get hasActivePeriod {
+    // Condition 1: must have a confirmed period start
+    final confirmedStarts = _getConfirmedStartDates();
+    if (confirmedStarts.isEmpty) return false;
+
+    // Condition 2: algorithm must also agree we are in Menstrual phase
+    if (_currentStatus.phase != CyclePhase.menstrual) return false;
+
+    // Condition 3: scan the current cycle window for an isPeriodEnd log
+    final DateTime anchor = DateTime(
+      _currentStatus.periodStartDate.year,
+      _currentStatus.periodStartDate.month,
+      _currentStatus.periodStartDate.day,
+    );
+    final DateTime windowEnd = anchor.add(const Duration(days: 14));
+
+    for (final entry in _allLogs.entries) {
+      final date = DateTime.tryParse(entry.key);
+      if (date == null) continue;
+      final dateNorm = DateTime(date.year, date.month, date.day);
+      if (!dateNorm.isBefore(anchor) &&
+          !dateNorm.isAfter(windowEnd) &&
+          entry.value.isPeriodEnd) {
+        return false; // User explicitly ended this period
+      }
+    }
+
+    return true;
+  }
+
   // ── Subscriptions ─────────────────────────────────────────────────────────
 
   StreamSubscription<dynamic>? _authSub;

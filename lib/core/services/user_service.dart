@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/notification_model.dart';
 import '../utils/helpers.dart';
+import '../../features/cycle/data/models/cycle_types.dart';
 import 'auth_service.dart';
 import 'cycle_service.dart';
 import 'notification_service.dart';
@@ -66,14 +67,39 @@ class UserService {
         'hasCompletedSetup': true,
       }, SetOptions(merge: true));
 
-      // Save confirmed period record for the selected lastPeriodStart anchor
+      // Save confirmed period record for the selected lastPeriodStart anchor.
       await CycleService.instance.savePeriodRecord(
         uid: uid,
         startDate: lastPeriodStart,
       );
 
+      // Write a companion cycle_log doc for the onboarding anchor date.
+      //
+      // Without this, _cleanupStalePeriodRecords would delete the PeriodRecord
+      // the moment the user logs anything on that date without re-toggling
+      // 'Period started'. The companion log ensures isPeriodStart stays true.
+      final periodDateKey = CycleService.instance.formatDateKey(
+        lastPeriodStart.year,
+        lastPeriodStart.month,
+        lastPeriodStart.day,
+      );
+      await CycleService.instance.saveDailyLog(
+        uid: uid,
+        dateKey: periodDateKey,
+        journal: DayJournal(
+          moods: const [],
+          symptoms: const [],
+          energy: 0.6,
+          notes: '',
+          isPeriodStart: true,
+          isPeriodEnd: false,
+        ),
+        isPeriodStart: true,
+        isPeriodEnd: false,
+      );
+
       Helpers.log(
-        'Saved setup flow data & initial period record for user: $uid',
+        'Saved setup flow data, initial period record & companion cycle log for user: $uid',
       );
     } catch (e) {
       Helpers.log('Error saving setup flow data to Firestore: $e');

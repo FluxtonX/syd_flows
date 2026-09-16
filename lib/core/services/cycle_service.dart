@@ -26,6 +26,7 @@ class CycleService {
     required DayJournal journal,
     int? dayNumber,
     bool isPeriodStart = false,
+    bool isPeriodEnd = false,
   }) async {
     try {
       final docRef = _db
@@ -43,6 +44,7 @@ class CycleService {
         'energy': journal.energy,
         'notes': journal.notes,
         'isPeriodStart': isPeriodStart,
+        'isPeriodEnd': isPeriodEnd,
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
@@ -160,6 +162,7 @@ class CycleService {
             final energy = (data['energy'] as num?)?.toDouble() ?? 0.6;
             final notes = (data['notes'] as String?) ?? '';
             final isPeriodStart = (data['isPeriodStart'] as bool?) ?? false;
+            final isPeriodEnd = (data['isPeriodEnd'] as bool?) ?? false;
 
             result[doc.id] = DayJournal(
               flow: flow,
@@ -168,6 +171,7 @@ class CycleService {
               energy: energy,
               notes: notes,
               isPeriodStart: isPeriodStart,
+              isPeriodEnd: isPeriodEnd,
             );
           }
           return result;
@@ -202,10 +206,13 @@ class CycleService {
             final day = int.tryParse(parts[2]);
             if (day != null) {
               monthLogs[day] = DayJournal(
+                flow: data['flow'] as String?,
                 moods: List<String>.from(data['moods'] ?? []),
                 symptoms: List<String>.from(data['symptoms'] ?? []),
                 energy: (data['energy'] as num?)?.toDouble() ?? 0.6,
                 notes: (data['notes'] as String?) ?? '',
+                isPeriodStart: (data['isPeriodStart'] as bool?) ?? false,
+                isPeriodEnd: (data['isPeriodEnd'] as bool?) ?? false,
               );
             }
           }
@@ -237,6 +244,7 @@ class CycleService {
           energy: (data['energy'] as num?)?.toDouble() ?? 0.6,
           notes: (data['notes'] as String?) ?? '',
           isPeriodStart: (data['isPeriodStart'] as bool?) ?? false,
+          isPeriodEnd: (data['isPeriodEnd'] as bool?) ?? false,
         );
       }
       return logsMap;

@@ -18,7 +18,7 @@ class OvulationEstimator {
     final DateTime anchorNorm = DateTime(anchor.year, anchor.month, anchor.day);
     final DateTime todayNorm = DateTime(today.year, today.month, today.day);
 
-    final int safePeriodLength = periodLength.clamp(2, 10);
+    final int safePeriodLength = periodLength.clamp(2, 14);
     final int safeCycleLength = cycleLength.clamp(15, 60);
 
     // Clinical benchmark: Luteal phase length is typically 14 days

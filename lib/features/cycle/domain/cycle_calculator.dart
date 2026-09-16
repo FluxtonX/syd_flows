@@ -129,7 +129,7 @@ class CycleCalculator {
     required int cycleLength,
     required int periodLength,
   }) {
-    final int safePeriodLength = periodLength.clamp(2, 10);
+    final int safePeriodLength = periodLength.clamp(2, 14);
     final int safeCycleLength = cycleLength.clamp(safePeriodLength + 5, 60);
 
     // Guaranteed minimum 4 days for follicular phase (safePeriodLength + 1 to ovulationDay - 2)
@@ -161,7 +161,7 @@ class CycleCalculator {
     required int cycleLength,
     required int periodLength,
   }) {
-    final int safePeriodLength = periodLength.clamp(2, 10);
+    final int safePeriodLength = periodLength.clamp(2, 14);
     final int safeCycleLength = cycleLength.clamp(safePeriodLength + 5, 60);
 
     final int ovulationDay = _calculateOvulationDay(
@@ -195,7 +195,7 @@ class CycleCalculator {
     required int periodLength,
     CycleStatistics? stats,
   }) {
-    final int safePeriodLength = periodLength.clamp(2, 10);
+    final int safePeriodLength = periodLength.clamp(2, 14);
     final int safeCycleLength = cycleLength.clamp(safePeriodLength + 5, 60);
 
     // Next period range & confidence calculation (Phase 3 Engine)
@@ -245,11 +245,11 @@ class CycleCalculator {
     Map<String, DayJournal>? allLogs,
     required int fallback,
   }) {
-    final int safeFallback = fallback.clamp(2, 10);
+    final int safeFallback = fallback.clamp(2, 14);
     if (allLogs == null || allLogs.isEmpty) return safeFallback;
 
-    // Only count active bleeding days in the initial 10-day window from cycle anchor
-    final DateTime initialWindowEnd = cycleAnchor.add(const Duration(days: 10));
+    // Evaluate active bleeding / period window up to 14 days from cycle anchor
+    final DateTime initialWindowEnd = cycleAnchor.add(const Duration(days: 14));
 
     int bleedingDays = 0;
     int maxBleedingDayOffset = 0;
@@ -268,30 +268,32 @@ class CycleCalculator {
         final dayOffset = dateNorm.difference(cycleAnchor).inDays + 1;
         final journal = entry.value;
 
-        if (journal.isBleeding) {
+        if (journal.isPeriodEnd) {
+          hasExplicitEnd = true;
+          explicitEndOffset = dayOffset;
+        } else if (journal.isBleeding) {
           bleedingDays++;
           if (dayOffset > maxBleedingDayOffset) {
             maxBleedingDayOffset = dayOffset;
           }
-        } else if (journal.isPeriodEnd || journal.flow?.toLowerCase() == 'none') {
+        } else if (journal.flow?.toLowerCase() == 'none') {
           hasExplicitEnd = true;
-          explicitEndOffset = dayOffset - 1;
+          explicitEndOffset = dayOffset > 1 ? dayOffset - 1 : 1;
         }
       }
     }
 
-    // 1. If explicit period end or flow='none' was logged after bleeding, respect observed end
-    if (hasExplicitEnd && maxBleedingDayOffset > 0) {
-      final int observedLength = explicitEndOffset > 0 ? explicitEndOffset : maxBleedingDayOffset;
-      return observedLength.clamp(1, 10);
+    // 1. If explicit period end was logged, respect observed end day immediately
+    if (hasExplicitEnd && explicitEndOffset > 0) {
+      return explicitEndOffset.clamp(1, 14);
     }
 
     if (bleedingDays == 0) return safeFallback;
 
-    // 2. Otherwise preserve fallback or actual bleeding count
-    return bleedingDays > safeFallback
-        ? bleedingDays.clamp(2, 10)
-        : safeFallback;
+    // 2. Otherwise respect max logged bleeding day (e.g. 10 days) or fallback
+    final int maxObserved =
+        maxBleedingDayOffset > bleedingDays ? maxBleedingDayOffset : bleedingDays;
+    return maxObserved > safeFallback ? maxObserved.clamp(2, 14) : safeFallback;
   }
 
   // ── Adaptive Period Length ───────────────────────────────────────────────
@@ -303,7 +305,7 @@ class CycleCalculator {
     required int fallbackLength,
     int cycleLength = 28,
   }) {
-    if (confirmedStarts.isEmpty) return fallbackLength.clamp(2, 10);
+    if (confirmedStarts.isEmpty) return fallbackLength.clamp(2, 14);
 
     final sorted = List<DateTime>.from(confirmedStarts)
       ..sort((a, b) => a.compareTo(b));
@@ -333,15 +335,15 @@ class CycleCalculator {
       }
 
       if (bleedingDays > 0) {
-        periodLengths.add(bleedingDays.clamp(2, 10));
+        periodLengths.add(bleedingDays.clamp(2, 14));
       }
     }
 
-    if (periodLengths.isEmpty) return fallbackLength.clamp(2, 10);
+    if (periodLengths.isEmpty) return fallbackLength.clamp(2, 14);
 
     final double avg =
         periodLengths.reduce((a, b) => a + b) / periodLengths.length.toDouble();
-    return avg.round().clamp(2, 10);
+    return avg.round().clamp(2, 14);
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -408,18 +410,50 @@ class CycleCalculator {
   }) {
     final DateTime dateNorm = _dateOnly(date);
 
-    // ── Priority 1: Observed active menstrual bleeding within initial period window
+    // ── Priority 1: Observed active menstrual bleeding within the dynamic period window
+    //
+    // Rules (in order):
+    //   a. Find the earliest isPeriodEnd date in the current cycle window.
+    //      If dateNorm is ON or AFTER that end date → skip to phase math (no Menstrual).
+    //   b. If dateNorm has a bleeding log AND is within adaptivePeriodLength days of
+    //      the cycle anchor → Menstrual.
     if (allLogs != null) {
-      final y = dateNorm.year.toString();
-      final m = dateNorm.month.toString().padLeft(2, '0');
-      final d = dateNorm.day.toString().padLeft(2, '0');
-      final key = '$y-$m-$d';
-      final entry = allLogs[key];
-      if (entry != null && entry.isBleeding) {
-        final DateTime anchorNorm = _dateOnly(anchor);
-        final int daysFromAnchor = dateNorm.difference(anchorNorm).inDays;
-        if (daysFromAnchor >= 0 && daysFromAnchor < 10) {
-          return CyclePhase.menstrual;
+      final DateTime anchorNorm = _dateOnly(anchor);
+      final int effectivePeriodLen =
+          (adaptivePeriodLength ?? periodLength).clamp(2, 14);
+      final DateTime windowEnd =
+          anchorNorm.add(Duration(days: effectivePeriodLen));
+
+      // (a) Find the earliest explicit period-end date within the bleeding window.
+      DateTime? periodEndDate;
+      for (final e in allLogs.entries) {
+        final eDate = DateTime.tryParse(e.key);
+        if (eDate == null) continue;
+        final eDateNorm = _dateOnly(eDate);
+        if (!eDateNorm.isBefore(anchorNorm) &&
+            !eDateNorm.isAfter(windowEnd) &&
+            e.value.isPeriodEnd) {
+          if (periodEndDate == null || eDateNorm.isBefore(periodEndDate)) {
+            periodEndDate = eDateNorm;
+          }
+        }
+      }
+
+      // If this date is on or after a confirmed period-end, skip Menstrual entirely.
+      if (periodEndDate != null && !dateNorm.isBefore(periodEndDate)) {
+        // Fall through to Priority 2/3 (phase math).
+      } else {
+        // (b) Check this specific date for active bleeding within the window.
+        final y = dateNorm.year.toString();
+        final m = dateNorm.month.toString().padLeft(2, '0');
+        final d = dateNorm.day.toString().padLeft(2, '0');
+        final key = '$y-$m-$d';
+        final entry = allLogs[key];
+        if (entry != null && entry.isBleeding) {
+          final int daysFromAnchor = dateNorm.difference(anchorNorm).inDays;
+          if (daysFromAnchor >= 0 && daysFromAnchor < effectivePeriodLen) {
+            return CyclePhase.menstrual;
+          }
         }
       }
     }

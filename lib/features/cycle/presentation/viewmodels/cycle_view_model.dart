@@ -186,6 +186,7 @@ class CycleViewModel extends ChangeNotifier {
           journal: journal,
           dayNumber: day,
           isPeriodStart: journal.isPeriodStart,
+          isPeriodEnd: journal.isPeriodEnd,
         );
       } catch (e) {
         Helpers.log('Error in CycleViewModel.saveLog: $e');
