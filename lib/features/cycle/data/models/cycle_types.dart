@@ -47,6 +47,19 @@ enum CyclePhase {
   }
 }
 
+// ── Calendar Day State ───────────────────────────────────────────────────────
+
+/// Visual and semantic state of a single calendar day cell for rendering.
+enum CalendarDayState {
+  actualPeriod,        // Logged menstrual bleeding or confirmed actual period day
+  predictedPeriod,     // Predicted future period window (unlogged bleeding)
+  estimatedOvulation,  // Predicted peak ovulation date
+  fertileWindow,       // Fertile window days surrounding ovulation
+  follicular,          // Follicular phase
+  luteal,              // Luteal phase
+  normal,              // Unshaded / normal day
+}
+
 enum PeriodSource {
   userConfirmed,
   userCorrected,

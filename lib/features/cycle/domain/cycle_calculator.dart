@@ -268,17 +268,18 @@ class CycleCalculator {
         final dayOffset = dateNorm.difference(cycleAnchor).inDays + 1;
         final journal = entry.value;
 
-        if (journal.isPeriodEnd) {
+        if (journal.isPeriodEnd || journal.flow?.toLowerCase() == 'none') {
           hasExplicitEnd = true;
-          explicitEndOffset = dayOffset;
+          if (journal.isBleeding) {
+            explicitEndOffset = dayOffset;
+          } else {
+            explicitEndOffset = dayOffset > 1 ? dayOffset - 1 : 1;
+          }
         } else if (journal.isBleeding) {
           bleedingDays++;
           if (dayOffset > maxBleedingDayOffset) {
             maxBleedingDayOffset = dayOffset;
           }
-        } else if (journal.flow?.toLowerCase() == 'none') {
-          hasExplicitEnd = true;
-          explicitEndOffset = dayOffset > 1 ? dayOffset - 1 : 1;
         }
       }
     }
@@ -415,14 +416,12 @@ class CycleCalculator {
     // Rules (in order):
     //   a. Find the earliest isPeriodEnd date in the current cycle window.
     //      If dateNorm is ON or AFTER that end date → skip to phase math (no Menstrual).
-    //   b. If dateNorm has a bleeding log AND is within adaptivePeriodLength days of
-    //      the cycle anchor → Menstrual.
+    //   b. If dateNorm has a bleeding log AND is within active window (up to 14 days) of
+    //      the cycle anchor → Menstrual (Actual data > Predicted length).
     if (allLogs != null) {
       final DateTime anchorNorm = _dateOnly(anchor);
-      final int effectivePeriodLen =
-          (adaptivePeriodLength ?? periodLength).clamp(2, 14);
-      final DateTime windowEnd =
-          anchorNorm.add(Duration(days: effectivePeriodLen));
+      // Physiological maximum active period window is 14 days.
+      final DateTime windowEnd = anchorNorm.add(const Duration(days: 14));
 
       // (a) Find the earliest explicit period-end date within the bleeding window.
       DateTime? periodEndDate;
@@ -439,11 +438,11 @@ class CycleCalculator {
         }
       }
 
-      // If this date is on or after a confirmed period-end, skip Menstrual entirely.
-      if (periodEndDate != null && !dateNorm.isBefore(periodEndDate)) {
+      // If this date is AFTER a confirmed period-end, skip Menstrual entirely.
+      if (periodEndDate != null && dateNorm.isAfter(periodEndDate)) {
         // Fall through to Priority 2/3 (phase math).
       } else {
-        // (b) Check this specific date for active bleeding within the window.
+        // (b) Check this specific date for active bleeding.
         final y = dateNorm.year.toString();
         final m = dateNorm.month.toString().padLeft(2, '0');
         final d = dateNorm.day.toString().padLeft(2, '0');
@@ -451,38 +450,48 @@ class CycleCalculator {
         final entry = allLogs[key];
         if (entry != null && entry.isBleeding) {
           final int daysFromAnchor = dateNorm.difference(anchorNorm).inDays;
-          if (daysFromAnchor >= 0 && daysFromAnchor < effectivePeriodLen) {
+          // Actual logged bleeding within the 14-day cycle window overrides predicted length.
+          if (daysFromAnchor >= 0 && daysFromAnchor < 14) {
             return CyclePhase.menstrual;
           }
         }
       }
     }
 
-    // ── Priority 2: Historical confirmed cycle windows ───────────────────
+    // ── Priority 2: Historical confirmed cycle windows & future projections
     if (confirmedStarts != null && confirmedStarts.isNotEmpty) {
       final sorted = List<DateTime>.from(confirmedStarts)
         ..sort((a, b) => a.compareTo(b));
 
       for (int i = 0; i < sorted.length; i++) {
         final DateTime cycleStart = _dateOnly(sorted[i]);
-        final DateTime cycleEnd = (i < sorted.length - 1)
-            ? _dateOnly(sorted[i + 1])
-            : cycleStart.add(Duration(days: cycleLength));
-
-        if (!dateNorm.isBefore(cycleStart) && dateNorm.isBefore(cycleEnd)) {
-          final int rawCycleLen = cycleEnd.difference(cycleStart).inDays;
-          final int effectiveLen = rawCycleLen >= 15
-              ? rawCycleLen
-              : cycleLength;
-
-          final int periodLenToUse = adaptivePeriodLength ?? periodLength;
-
-          final int cycleDay = dateNorm.difference(cycleStart).inDays + 1;
-          return _computePhase(
-            cycleDay: cycleDay,
-            cycleLength: effectiveLen,
-            periodLength: periodLenToUse,
-          );
+        if (i < sorted.length - 1) {
+          final DateTime cycleEnd = _dateOnly(sorted[i + 1]);
+          if (!dateNorm.isBefore(cycleStart) && dateNorm.isBefore(cycleEnd)) {
+            final int rawCycleLen = cycleEnd.difference(cycleStart).inDays;
+            final int effectiveLen = rawCycleLen >= 15
+                ? rawCycleLen
+                : cycleLength;
+            final int periodLenToUse = adaptivePeriodLength ?? periodLength;
+            final int cycleDay = dateNorm.difference(cycleStart).inDays + 1;
+            return _computePhase(
+              cycleDay: cycleDay,
+              cycleLength: effectiveLen,
+              periodLength: periodLenToUse,
+            );
+          }
+        } else {
+          // Last confirmed cycle anchor: project current and future cycle predictions
+          if (!dateNorm.isBefore(cycleStart)) {
+            final int periodLenToUse = adaptivePeriodLength ?? periodLength;
+            final int daysFromLast = dateNorm.difference(cycleStart).inDays;
+            final int cycleDay = (daysFromLast % cycleLength) + 1;
+            return _computePhase(
+              cycleDay: cycleDay,
+              cycleLength: cycleLength,
+              periodLength: periodLenToUse,
+            );
+          }
         }
       }
     }
@@ -501,8 +510,14 @@ class CycleCalculator {
       );
     }
 
-    final int rawDiff = dateNorm.difference(anchorNorm).inDays;
-    final int cycleDay = (rawDiff % cycleLength) + 1;
+    final int daysFromAnchor = dateNorm.difference(anchorNorm).inDays;
+    if (daysFromAnchor >= cycleLength) {
+      // Overdue cycle beyond cycleLength.
+      // Without an explicit new period start date, the cycle remains in extended Luteal phase.
+      return CyclePhase.luteal;
+    }
+
+    final int cycleDay = daysFromAnchor + 1;
     return _computePhase(
       cycleDay: cycleDay,
       cycleLength: cycleLength,

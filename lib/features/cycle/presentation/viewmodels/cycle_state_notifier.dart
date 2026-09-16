@@ -47,23 +47,26 @@ class CycleStateNotifier extends ChangeNotifier {
     final confirmedStarts = _getConfirmedStartDates();
     if (confirmedStarts.isEmpty) return false;
 
-    // Condition 2: algorithm must also agree we are in Menstrual phase
-    if (_currentStatus.phase != CyclePhase.menstrual) return false;
+    final DateTime today = DateTime.now();
+    final DateTime todayNorm = DateTime(today.year, today.month, today.day);
 
-    // Condition 3: scan the current cycle window for an isPeriodEnd log
     final DateTime anchor = DateTime(
       _currentStatus.periodStartDate.year,
       _currentStatus.periodStartDate.month,
       _currentStatus.periodStartDate.day,
     );
-    final DateTime windowEnd = anchor.add(const Duration(days: 14));
 
+    // Today must be on or after the anchor, and within 14 days of anchor
+    final int daysSinceStart = todayNorm.difference(anchor).inDays;
+    if (daysSinceStart < 0 || daysSinceStart >= 14) return false;
+
+    // Condition 2: scan the active period window for an explicit isPeriodEnd log
     for (final entry in _allLogs.entries) {
       final date = DateTime.tryParse(entry.key);
       if (date == null) continue;
       final dateNorm = DateTime(date.year, date.month, date.day);
       if (!dateNorm.isBefore(anchor) &&
-          !dateNorm.isAfter(windowEnd) &&
+          !dateNorm.isAfter(todayNorm) &&
           entry.value.isPeriodEnd) {
         return false; // User explicitly ended this period
       }
@@ -301,6 +304,54 @@ class CycleStateNotifier extends ChangeNotifier {
   }
 
   // ── Phase for Calendar Date ───────────────────────────────────────────────
+
+  /// Returns the [CalendarDayState] for any calendar [date], distinguishing
+  /// actual user-logged bleeding from predicted phase math windows.
+  CalendarDayState dayStateForCalendarDate(DateTime date) {
+    final DateTime dateNorm = DateTime(date.year, date.month, date.day);
+    final String y = dateNorm.year.toString();
+    final String m = dateNorm.month.toString().padLeft(2, '0');
+    final String d = dateNorm.day.toString().padLeft(2, '0');
+    final String key = '$y-$m-$d';
+
+    final DayJournal? log = _allLogs[key];
+    final bool isUserLoggedBleeding =
+        log != null && (log.isBleeding || log.isPeriodStart);
+
+    // Priority 1: Actual logged data takes precedence over algorithm predictions!
+    if (isUserLoggedBleeding) {
+      return CalendarDayState.actualPeriod;
+    }
+
+    // Priority 2: Predictions & phase math
+    final CyclePhase phase = phaseForCalendarDate(dateNorm);
+
+    if (phase == CyclePhase.menstrual) {
+      // Predicted menstrual phase window (no user bleeding log on this date)
+      return CalendarDayState.predictedPeriod;
+    }
+
+    if (phase == CyclePhase.ovulation) {
+      final predictions = currentStatus.predictions;
+      final ovDate = predictions.ovulationDate;
+      if (ovDate.year == dateNorm.year &&
+          ovDate.month == dateNorm.month &&
+          ovDate.day == dateNorm.day) {
+        return CalendarDayState.estimatedOvulation;
+      }
+      return CalendarDayState.fertileWindow;
+    }
+
+    if (phase == CyclePhase.follicular) {
+      return CalendarDayState.follicular;
+    }
+
+    if (phase == CyclePhase.luteal) {
+      return CalendarDayState.luteal;
+    }
+
+    return CalendarDayState.normal;
+  }
 
   /// Returns the [CyclePhase] for any calendar [date].
   /// Uses actual flow logs for Clue-style dynamic phase transitions.

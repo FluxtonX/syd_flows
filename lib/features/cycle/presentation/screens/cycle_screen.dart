@@ -9,6 +9,7 @@ import '../../../../core/widgets/app_success_banner.dart';
 import '../viewmodels/cycle_view_model.dart';
 import '../widgets/cycle_provider.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/cycle_service.dart';
 import '../../../../core/services/export_service.dart';
 import '../../data/models/cycle_types.dart';
 
@@ -50,18 +51,26 @@ class _CycleScreenState extends State<CycleScreen> {
     return CyclePhase.unknown;
   }
 
+  /// Returns the visual/semantic day state for [day] using CycleStateNotifier.
+  CalendarDayState _getDayState(int day) {
+    final date = DateTime(_viewModel.currentYear, _viewModel.currentMonth, day);
+    final cycleNotifier = CycleProvider.ofNullable(context);
+    if (cycleNotifier != null) {
+      return cycleNotifier.dayStateForCalendarDate(date);
+    }
+    return CalendarDayState.normal;
+  }
+
   Widget _buildFlowIndicator(String flow, bool isSelected) {
     const spottingSelectedColor = Color(0xFFD32F2F); // Active Red Accent
-    final dropColor = isSelected ? AppColors.wellnessBrown : AppColors.white;
-    final dropShadows = isSelected
-        ? null
-        : const [
-            Shadow(
-              color: Colors.black38,
-              blurRadius: 2.0,
-              offset: Offset(0, 0.5),
-            ),
-          ];
+    final dropColor = AppColors.white;
+    final dropShadows = const [
+      Shadow(
+        color: Colors.black38,
+        blurRadius: 2.0,
+        offset: Offset(0, 0.5),
+      ),
+    ];
 
     switch (flow.toLowerCase()) {
       case 'spotting':
@@ -223,7 +232,11 @@ class _CycleScreenState extends State<CycleScreen> {
         ),
       ),
       builder: (context) =>
-          _LogTodayBottomSheet(initialJournal: initialJournal, title: title),
+          _LogTodayBottomSheet(
+            initialJournal: initialJournal,
+            title: title,
+            isToday: isToday,
+          ),
     );
 
     if (result != null) {
@@ -592,30 +605,104 @@ class _CycleScreenState extends State<CycleScreen> {
     );
   }
 
-  Future<void> _stopPeriodToday() async {
+  /// Prompts user with a calendar DatePicker to select the exact period end date.
+  Future<void> _stopPeriodWithDatePicker() async {
     final now = DateTime.now();
-    final todayDay = now.day;
-    final currentJournal = _viewModel.journalEntries[todayDay] ??
-        DayJournal(moods: [], symptoms: [], energy: 0.6, notes: '');
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final cycleNotifier = CycleProvider.ofNullable(context);
+    final periodStart =
+        cycleNotifier?.currentStatus.periodStartDate ?? todayDate;
 
-    final updatedJournal = DayJournal(
-      flow: 'none',
-      moods: currentJournal.moods,
-      symptoms: currentJournal.symptoms,
-      energy: currentJournal.energy,
-      notes: currentJournal.notes,
-      isPeriodStart: false,
-      isPeriodEnd: true,
+    final firstDate = periodStart.isAfter(todayDate) ? todayDate : periodStart;
+
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: todayDate,
+      firstDate: firstDate,
+      lastDate: todayDate,
+      helpText: 'Select Period End Date',
+      confirmText: 'Confirm End Date',
+      cancelText: 'Cancel',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.wellnessBrown,
+              onPrimary: AppColors.white,
+              onSurface: AppColors.wellnessBrown,
+              surface: AppColors.white,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.wellnessBrown,
+                textStyle: AppTextStyles.labelLarge.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
-    await _viewModel.saveLog(todayDay, updatedJournal);
+    if (pickedDate == null) return;
+
+    final pickedDateNorm =
+        DateTime(pickedDate.year, pickedDate.month, pickedDate.day);
+    final String y = pickedDateNorm.year.toString();
+    final String m = pickedDateNorm.month.toString().padLeft(2, '0');
+    final String d = pickedDateNorm.day.toString().padLeft(2, '0');
+    final String dateKey = '$y-$m-$d';
+
+    if (pickedDateNorm.year == _viewModel.currentYear &&
+        pickedDateNorm.month == _viewModel.currentMonth) {
+      final targetDay = pickedDateNorm.day;
+      final currentJournal = _viewModel.journalEntries[targetDay] ??
+          DayJournal(moods: [], symptoms: [], energy: 0.6, notes: '');
+
+      final updatedJournal = DayJournal(
+        flow: 'none',
+        moods: currentJournal.moods,
+        symptoms: currentJournal.symptoms,
+        energy: currentJournal.energy,
+        notes: currentJournal.notes,
+        isPeriodStart: false,
+        isPeriodEnd: true,
+      );
+
+      await _viewModel.saveLog(targetDay, updatedJournal);
+    } else {
+      final uid = AuthService.instance.currentUser?.uid;
+      if (uid != null) {
+        final updatedJournal = DayJournal(
+          flow: 'none',
+          moods: [],
+          symptoms: [],
+          energy: 0.6,
+          notes: '',
+          isPeriodStart: false,
+          isPeriodEnd: true,
+        );
+
+        await CycleService.instance.saveDailyLog(
+          uid: uid,
+          dateKey: dateKey,
+          journal: updatedJournal,
+          isPeriodEnd: true,
+        );
+        cycleNotifier?.refresh();
+      }
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Period stopped! Dynamic cycle updated. 🌸'),
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: Text(
+            'Period marked as stopped on ${pickedDateNorm.day}/${pickedDateNorm.month}/${pickedDateNorm.year}! 🌸',
+          ),
+          duration: const Duration(seconds: 3),
           backgroundColor: AppColors.wellnessBrown,
           behavior: SnackBarBehavior.floating,
         ),
@@ -623,38 +710,100 @@ class _CycleScreenState extends State<CycleScreen> {
     }
   }
 
-  /// Logs today as the start of a new period cycle.
-  ///
-  /// Writes `isPeriodStart: true` to both the cycle_log and the periods
-  /// subcollection. [CycleStateNotifier] picks this up instantly via its
-  /// real-time stream, shifts the confirmed anchor to today, and recomputes
-  /// all phases and predictions from the new Day 1.
-  Future<void> _startNewPeriodToday() async {
+  /// Prompts user with a calendar DatePicker to select the exact period start date.
+  Future<void> _startNewPeriodWithDatePicker() async {
     final now = DateTime.now();
-    final todayDay = now.day;
-    final currentJournal = _viewModel.journalEntries[todayDay] ??
-        DayJournal(moods: [], symptoms: [], energy: 0.6, notes: '');
+    final todayDate = DateTime(now.year, now.month, now.day);
 
-    // Preserve any existing journal data (moods, symptoms, etc.) but force
-    // isPeriodStart = true and clear any leftover isPeriodEnd flag.
-    final updatedJournal = DayJournal(
-      flow: currentJournal.flow,
-      moods: currentJournal.moods,
-      symptoms: currentJournal.symptoms,
-      energy: currentJournal.energy,
-      notes: currentJournal.notes,
-      isPeriodStart: true,
-      isPeriodEnd: false,
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: todayDate,
+      firstDate: todayDate.subtract(const Duration(days: 90)),
+      lastDate: todayDate,
+      helpText: 'Select Period Start Date',
+      confirmText: 'Start Period',
+      cancelText: 'Cancel',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.wellnessBrown,
+              onPrimary: AppColors.white,
+              onSurface: AppColors.wellnessBrown,
+              surface: AppColors.white,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.wellnessBrown,
+                textStyle: AppTextStyles.labelLarge.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
-    await _viewModel.saveLog(todayDay, updatedJournal);
+    if (pickedDate == null) return;
+
+    final pickedDateNorm =
+        DateTime(pickedDate.year, pickedDate.month, pickedDate.day);
+    final String y = pickedDateNorm.year.toString();
+    final String m = pickedDateNorm.month.toString().padLeft(2, '0');
+    final String d = pickedDateNorm.day.toString().padLeft(2, '0');
+    final String dateKey = '$y-$m-$d';
+
+    if (pickedDateNorm.year == _viewModel.currentYear &&
+        pickedDateNorm.month == _viewModel.currentMonth) {
+      final targetDay = pickedDateNorm.day;
+      final currentJournal = _viewModel.journalEntries[targetDay] ??
+          DayJournal(moods: [], symptoms: [], energy: 0.6, notes: '');
+
+      final updatedJournal = DayJournal(
+        flow: currentJournal.flow ?? 'medium',
+        moods: currentJournal.moods,
+        symptoms: currentJournal.symptoms,
+        energy: currentJournal.energy,
+        notes: currentJournal.notes,
+        isPeriodStart: true,
+        isPeriodEnd: false,
+      );
+
+      await _viewModel.saveLog(targetDay, updatedJournal);
+    } else {
+      final uid = AuthService.instance.currentUser?.uid;
+      if (uid != null) {
+        final updatedJournal = DayJournal(
+          flow: 'medium',
+          moods: [],
+          symptoms: [],
+          energy: 0.6,
+          notes: '',
+          isPeriodStart: true,
+          isPeriodEnd: false,
+        );
+
+        await CycleService.instance.saveDailyLog(
+          uid: uid,
+          dateKey: dateKey,
+          journal: updatedJournal,
+          isPeriodStart: true,
+        );
+
+        CycleProvider.ofNullable(context)?.refresh();
+      }
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('New period started! Cycle updated from today. 🌸'),
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: Text(
+            'New period started on ${pickedDateNorm.day}/${pickedDateNorm.month}/${pickedDateNorm.year}! 🌸',
+          ),
+          duration: const Duration(seconds: 3),
           backgroundColor: AppColors.wellnessBrown,
           behavior: SnackBarBehavior.floating,
         ),
@@ -737,7 +886,7 @@ class _CycleScreenState extends State<CycleScreen> {
           ),
           const SizedBox(width: 10.0),
           GestureDetector(
-            onTap: _stopPeriodToday,
+            onTap: _stopPeriodWithDatePicker,
             child: Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: 14.0,
@@ -868,7 +1017,7 @@ class _CycleScreenState extends State<CycleScreen> {
           ),
           const SizedBox(width: 10.0),
           GestureDetector(
-            onTap: _startNewPeriodToday,
+            onTap: _startNewPeriodWithDatePicker,
             child: Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: 14.0,
@@ -1145,7 +1294,7 @@ class _CycleScreenState extends State<CycleScreen> {
                   final day = calendarDays[index];
                   if (day == 0) return const SizedBox.shrink();
 
-                  final phase = _getDayPhase(day);
+                  final dayState = _getDayState(day);
                   final isSelected = day == selectedDay;
                   final journal = journalEntries[day];
                   final flow = journal?.flow;
@@ -1192,18 +1341,7 @@ class _CycleScreenState extends State<CycleScreen> {
                         horizontal: 1.0,
                         vertical: 2.0,
                       ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppColors.white
-                            : _getPhaseColor(phase),
-                        borderRadius: BorderRadius.circular(8.0),
-                        border: isSelected
-                            ? Border.all(
-                                color: AppColors.wellnessBrown,
-                                width: 2.0,
-                              )
-                            : null,
-                      ),
+                      decoration: _getDayStateDecoration(dayState, isSelected),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Column(
@@ -1213,9 +1351,7 @@ class _CycleScreenState extends State<CycleScreen> {
                             Text(
                               '$day',
                               style: AppTextStyles.bodyMedium.copyWith(
-                                color: isSelected
-                                    ? AppColors.wellnessBrown
-                                    : _getPhaseTextColor(phase),
+                                color: _getDayStateTextColor(dayState, isSelected),
                                 fontWeight: isSelected
                                     ? FontWeight.bold
                                     : FontWeight.w600,
@@ -1238,13 +1374,14 @@ class _CycleScreenState extends State<CycleScreen> {
             // Legend below calendar — uses Wrap to prevent overflow on small screens
             Wrap(
               alignment: WrapAlignment.spaceEvenly,
-              spacing: 12.0,
+              spacing: 10.0,
               runSpacing: 8.0,
               children: [
-                _buildLegendItem(AppColors.phaseMenstrual, 'Menstrual'),
-                _buildLegendItem(AppColors.phaseFollicular, 'Follicular'),
-                _buildLegendItem(AppColors.phaseOvulation, 'Ovulation'),
-                _buildLegendItem(AppColors.phaseLuteal, 'Luteal'),
+                _buildLegendItem(AppColors.phaseMenstrual, 'Period (Actual)', isSolid: true),
+                _buildLegendItem(AppColors.phaseMenstrual, 'Predicted', isSolid: false),
+                _buildLegendItem(AppColors.phaseFollicular, 'Follicular', isSolid: true),
+                _buildLegendItem(AppColors.phaseOvulation, 'Ovulation', isSolid: true),
+                _buildLegendItem(AppColors.phaseLuteal, 'Luteal', isSolid: true),
               ],
             ),
           ],
@@ -1253,7 +1390,60 @@ class _CycleScreenState extends State<CycleScreen> {
     );
   }
 
-  Widget _buildLegendItem(Color dotColor, String label) {
+  BoxDecoration _getDayStateDecoration(CalendarDayState dayState, bool isSelected) {
+    Color backgroundColor;
+    Border? border;
+
+    switch (dayState) {
+      case CalendarDayState.actualPeriod:
+        backgroundColor = AppColors.phaseMenstrual;
+        break;
+      case CalendarDayState.predictedPeriod:
+        backgroundColor = AppColors.phaseMenstrual.withValues(alpha: 0.28);
+        border = Border.all(
+          color: AppColors.phaseMenstrual,
+          width: 1.2,
+        );
+        break;
+      case CalendarDayState.estimatedOvulation:
+        backgroundColor = AppColors.phaseOvulation;
+        break;
+      case CalendarDayState.fertileWindow:
+        backgroundColor = AppColors.phaseOvulation.withValues(alpha: 0.35);
+        break;
+      case CalendarDayState.follicular:
+        backgroundColor = AppColors.phaseFollicular;
+        break;
+      case CalendarDayState.luteal:
+        backgroundColor = AppColors.phaseLuteal;
+        break;
+      case CalendarDayState.normal:
+        backgroundColor = Colors.transparent;
+        break;
+    }
+
+    if (isSelected) {
+      border = Border.all(
+        color: AppColors.wellnessBrown,
+        width: 2.5,
+      );
+    }
+
+    return BoxDecoration(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(8.0),
+      border: border,
+    );
+  }
+
+  Color _getDayStateTextColor(CalendarDayState dayState, bool isSelected) {
+    if (dayState == CalendarDayState.predictedPeriod || dayState == CalendarDayState.normal) {
+      return AppColors.wellnessBrown;
+    }
+    return AppColors.white;
+  }
+
+  Widget _buildLegendItem(Color dotColor, String label, {bool isSolid = true}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1261,10 +1451,9 @@ class _CycleScreenState extends State<CycleScreen> {
           width: 8,
           height: 8,
           decoration: BoxDecoration(
-            color: dotColor,
-            borderRadius: BorderRadius.circular(
-              2.0,
-            ), // Rounded square legend dots
+            color: isSolid ? dotColor : dotColor.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(2.0),
+            border: isSolid ? null : Border.all(color: dotColor, width: 1.0),
           ),
         ),
         AppSpacing.w4,
@@ -1545,10 +1734,12 @@ class _WeekdayLabel extends StatelessWidget {
 class _LogTodayBottomSheet extends StatefulWidget {
   final DayJournal initialJournal;
   final String title;
+  final bool isToday;
 
   const _LogTodayBottomSheet({
     required this.initialJournal,
     this.title = 'Log today',
+    this.isToday = true,
   });
 
   @override
@@ -1816,174 +2007,8 @@ class _LogTodayBottomSheetState extends State<_LogTodayBottomSheet> {
               ],
             ),
             const SizedBox(height: 10.0),
-            // Period Started Today toggle (Sleek Inline Toggle Card)
-            GestureDetector(
-              onTap: () => setState(() {
-                _isPeriodStart = !_isPeriodStart;
-                if (_isPeriodStart) _isPeriodEnd = false;
-              }),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14.0,
-                  vertical: 8.0,
-                ),
-                decoration: BoxDecoration(
-                  color: _isPeriodStart
-                      ? AppColors.phaseMenstrual.withValues(alpha: 0.08)
-                      : AppColors.white,
-                  borderRadius: AppRadius.r12,
-                  border: Border.all(
-                    color: _isPeriodStart
-                        ? AppColors.phaseMenstrual
-                        : AppColors.wellnessBeige.withValues(alpha: 0.3),
-                    width: 1.2,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.water_drop_rounded,
-                      color: _isPeriodStart
-                          ? AppColors.phaseMenstrual
-                          : AppColors.wellnessBeige,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8.0),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Period started today',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.labelMedium.copyWith(
-                              color: AppColors.wellnessBrown,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13.0,
-                            ),
-                          ),
-                          if (_isPeriodStart)
-                            Text(
-                              'New cycle begins',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.labelSmall.copyWith(
-                                color: AppColors.phaseMenstrual,
-                                fontSize: 10.0,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8.0),
-                    Transform.scale(
-                      scale: 0.8,
-                      child: Switch.adaptive(
-                        value: _isPeriodStart,
-                        onChanged: (val) => setState(() {
-                          _isPeriodStart = val;
-                          if (_isPeriodStart) _isPeriodEnd = false;
-                        }),
-                        activeTrackColor: AppColors.phaseMenstrual,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8.0),
-            // Period Ended Today toggle (Stop Cycle Card)
-            GestureDetector(
-              onTap: () => setState(() {
-                _isPeriodEnd = !_isPeriodEnd;
-                if (_isPeriodEnd) {
-                  _isPeriodStart = false;
-                  if (_selectedFlow == null || _selectedFlow!.isEmpty) {
-                    _selectedFlow = 'none';
-                  }
-                }
-              }),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14.0,
-                  vertical: 8.0,
-                ),
-                decoration: BoxDecoration(
-                  color: _isPeriodEnd
-                      ? AppColors.phaseFollicular.withValues(alpha: 0.12)
-                      : AppColors.white,
-                  borderRadius: AppRadius.r12,
-                  border: Border.all(
-                    color: _isPeriodEnd
-                        ? AppColors.phaseFollicular
-                        : AppColors.wellnessBeige.withValues(alpha: 0.3),
-                    width: 1.2,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.stop_circle_rounded,
-                      color: _isPeriodEnd
-                          ? AppColors.phaseFollicular
-                          : AppColors.wellnessBeige,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8.0),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Period ended today',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.labelMedium.copyWith(
-                              color: AppColors.wellnessBrown,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13.0,
-                            ),
-                          ),
-                          if (_isPeriodEnd)
-                            Text(
-                              'Stops cycle & starts Follicular phase',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.labelSmall.copyWith(
-                                color: AppColors.phaseFollicular,
-                                fontSize: 10.0,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8.0),
-                    Transform.scale(
-                      scale: 0.8,
-                      child: Switch.adaptive(
-                        value: _isPeriodEnd,
-                        onChanged: (val) => setState(() {
-                          _isPeriodEnd = val;
-                          if (_isPeriodEnd) {
-                            _isPeriodStart = false;
-                            if (_selectedFlow == null || _selectedFlow!.isEmpty) {
-                              _selectedFlow = 'none';
-                            }
-                          }
-                        }),
-                        activeTrackColor: AppColors.phaseFollicular,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24.0),
+
+            const SizedBox(height: 16.0),
 
             // MOOD SECTION
             Text(
