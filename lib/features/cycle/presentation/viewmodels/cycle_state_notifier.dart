@@ -298,6 +298,15 @@ class CycleStateNotifier extends ChangeNotifier {
       }
     }
 
+    // From onboarding / setup flow cycle settings lastPeriodStart anchor
+    final anchor = _settings.lastPeriodStart;
+    if (!anchor.isAfter(cutoff)) {
+      final key = '${anchor.year}-${anchor.month}-${anchor.day}';
+      if (!uniqueMap.containsKey(key)) {
+        uniqueMap[key] = anchor;
+      }
+    }
+
     final list = uniqueMap.values.toList()
       ..sort((a, b) => b.compareTo(a)); // Descending
     return list;

@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:syd_flow/features/cycle/data/models/cycle_types.dart';
 import 'package:syd_flow/features/cycle/data/models/period_record.dart';
 import 'package:syd_flow/features/cycle/domain/cycle_calculator.dart';
-import 'package:syd_flow/features/cycle/presentation/viewmodels/cycle_state_notifier.dart';
 
 void main() {
   group('E2E Full Flow Integration Tests — Frontend to Service & Logic Engine', () {
@@ -107,6 +106,36 @@ void main() {
         periodLength: 5,
       );
       expect(ovulationPhase, equals(CyclePhase.ovulation));
+    });
+
+    test('E2E Scenario 4: New user account onboarding anchor initialization & active period status', () {
+      final onboardingSettings = CycleSettings(
+        lastPeriodStart: DateTime(2026, 9, 10),
+        cycleLength: 28,
+        periodLength: 5,
+      );
+
+      // On Day 3 (Sep 12), phase is menstrual
+      final statusDay3 = CycleCalculator.compute(
+        settings: onboardingSettings,
+        today: DateTime(2026, 9, 12),
+        confirmedPeriodStart: onboardingSettings.lastPeriodStart,
+      );
+
+      expect(statusDay3.periodStartDate, equals(DateTime(2026, 9, 10)));
+      expect(statusDay3.cycleDay, equals(3));
+      expect(statusDay3.phase, equals(CyclePhase.menstrual));
+
+      // On Day 7 (Sep 16), without logged bleeding, phase transitions to follicular
+      final statusDay7 = CycleCalculator.compute(
+        settings: onboardingSettings,
+        today: DateTime(2026, 9, 16),
+        confirmedPeriodStart: onboardingSettings.lastPeriodStart,
+      );
+
+      expect(statusDay7.periodStartDate, equals(DateTime(2026, 9, 10)));
+      expect(statusDay7.cycleDay, equals(7));
+      expect(statusDay7.phase, equals(CyclePhase.follicular));
     });
   });
 }

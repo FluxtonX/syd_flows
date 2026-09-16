@@ -772,6 +772,9 @@ class _CycleScreenState extends State<CycleScreen> {
       );
 
       await _viewModel.saveLog(targetDay, updatedJournal);
+      if (mounted) {
+        CycleProvider.ofNullable(context)?.refresh();
+      }
     } else {
       final uid = AuthService.instance.currentUser?.uid;
       if (uid != null) {
@@ -792,7 +795,9 @@ class _CycleScreenState extends State<CycleScreen> {
           isPeriodStart: true,
         );
 
-        CycleProvider.ofNullable(context)?.refresh();
+        if (mounted) {
+          CycleProvider.ofNullable(context)?.refresh();
+        }
       }
     }
 
