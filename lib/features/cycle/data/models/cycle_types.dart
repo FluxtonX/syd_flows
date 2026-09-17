@@ -503,12 +503,17 @@ class CycleSettings {
   final int cycleLength;
   final int periodLength;
   final DateTime? updatedAt;
+  /// When true, [lastPeriodStart] is a prediction-calibration baseline from the
+  /// Setup Flow — it is NOT a user-confirmed active period start.
+  /// The adaptive cycle engine must exclude this date from confirmed starts.
+  final bool isBaselineOnly;
 
   const CycleSettings({
     required this.lastPeriodStart,
     required this.cycleLength,
     required this.periodLength,
     this.updatedAt,
+    this.isBaselineOnly = false, // Default false: safe for existing users
   });
 
   static CycleSettings get defaults => CycleSettings(
@@ -538,11 +543,13 @@ class CycleSettings {
 
     final cycleLength = (map['cycleLength'] as num?)?.toInt() ?? 28;
     final periodLength = (map['periodLength'] as num?)?.toInt() ?? 5;
+    final isBaselineOnly = (map['isBaselineOnly'] as bool?) ?? false;
 
     return CycleSettings(
       lastPeriodStart: lastPeriodStart,
       cycleLength: cycleLength.clamp(15, 60),
       periodLength: periodLength.clamp(2, 10),
+      isBaselineOnly: isBaselineOnly,
     );
   }
 
@@ -551,12 +558,14 @@ class CycleSettings {
     int? cycleLength,
     int? periodLength,
     DateTime? updatedAt,
+    bool? isBaselineOnly,
   }) {
     return CycleSettings(
       lastPeriodStart: lastPeriodStart ?? this.lastPeriodStart,
       cycleLength: cycleLength ?? this.cycleLength,
       periodLength: periodLength ?? this.periodLength,
       updatedAt: updatedAt ?? this.updatedAt,
+      isBaselineOnly: isBaselineOnly ?? this.isBaselineOnly,
     );
   }
 }

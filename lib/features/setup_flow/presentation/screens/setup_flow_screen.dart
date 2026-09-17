@@ -236,7 +236,7 @@ class _SetupFlowScreenState extends State<SetupFlowScreen> {
   String _getStepTitle(int step) {
     switch (step) {
       case 0:
-        return 'First period';
+        return 'Last period date';
       case 1:
         return 'Cycle length';
       case 2:
@@ -258,7 +258,7 @@ class _SetupFlowScreenState extends State<SetupFlowScreen> {
   String _getStepSubtitle(int step) {
     switch (step) {
       case 0:
-        return 'When did your last period start?';
+        return 'When did your last period start? We use this to predict your current phase — not to start a cycle log. You can log your actual period anytime from the Cycle tab.';
       case 1:
         return 'Average days from one period to the next.';
       case 2:

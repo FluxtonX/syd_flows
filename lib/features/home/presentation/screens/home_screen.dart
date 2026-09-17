@@ -513,6 +513,7 @@ class _HomeScreenState extends State<HomeScreen> {
         phaseName: 'Follicular phase',
         headlineText: 'Rising energy — build and explore',
         daysUntilNext: 27,
+        energyLabel: 'Rising energy',
       );
     }
 
@@ -521,26 +522,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
     String phaseName;
     String headlineText;
+    String energyLabel;
     switch (phase) {
       case CyclePhase.menstrual:
         phaseName = 'Menstrual phase';
         headlineText = 'Rest & recharge — prioritize gentle movement';
+        energyLabel = 'Rest & flow';
         break;
       case CyclePhase.follicular:
         phaseName = 'Follicular phase';
         headlineText = 'Rising energy — build and explore';
+        energyLabel = 'Rising energy';
         break;
       case CyclePhase.ovulation:
         phaseName = 'Ovulation phase';
         headlineText = 'Peak energy & focus — push your limits';
+        energyLabel = 'Peak energy';
         break;
       case CyclePhase.luteal:
         phaseName = 'Luteal phase';
         headlineText = 'Steady strength — listen to your body';
+        energyLabel = 'Steady strength';
         break;
       case CyclePhase.unknown:
         phaseName = 'Follicular phase';
         headlineText = 'Rising energy — build and explore';
+        energyLabel = 'Rising energy';
         break;
     }
 
@@ -549,6 +556,7 @@ class _HomeScreenState extends State<HomeScreen> {
       phaseName: phaseName,
       headlineText: headlineText,
       daysUntilNext: status.daysRemaining,
+      energyLabel: energyLabel,
     );
   }
 
@@ -557,6 +565,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required String phaseName,
     required String headlineText,
     required int daysUntilNext,
+    required String energyLabel,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -615,7 +624,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   AppSpacing.h4,
                   Text(
-                    'Rising energy • $daysUntilNext days until your next period',
+                    '$energyLabel • $daysUntilNext days until your next period',
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.wellnessGray,
                     ),

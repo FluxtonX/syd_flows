@@ -626,17 +626,82 @@ class _CycleScreenState extends State<CycleScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
+            colorScheme: ColorScheme.light(
               primary: AppColors.wellnessBrown,
               onPrimary: AppColors.white,
               onSurface: AppColors.wellnessBrown,
-              surface: AppColors.white,
+              surface: const Color(0xFFFBF7F2),
+              onSurfaceVariant: AppColors.wellnessGray,
+              outline: AppColors.wellnessBrown.withValues(alpha: 0.2),
+            ),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: const Color(0xFFFBF7F2),
+              headerBackgroundColor: AppColors.wellnessBrown,
+              headerForegroundColor: AppColors.white,
+              headerHeadlineStyle: AppTextStyles.headlineLarge.copyWith(
+                color: AppColors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 28,
+              ),
+              headerHelpStyle: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.white.withValues(alpha: 0.85),
+                letterSpacing: 0.8,
+              ),
+              dayStyle: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.wellnessBrown,
+                fontWeight: FontWeight.w500,
+              ),
+              weekdayStyle: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.wellnessGray,
+                fontWeight: FontWeight.w600,
+              ),
+              yearStyle: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.wellnessBrown,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: AppRadius.r24,
+              ),
+              dayShape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: AppRadius.r8),
+              ),
+              todayBorder: BorderSide(
+                color: AppColors.wellnessBrown,
+                width: 1.5,
+              ),
+              todayForegroundColor: WidgetStateProperty.all(
+                AppColors.wellnessBrown,
+              ),
+              dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) return AppColors.white;
+                if (states.contains(WidgetState.disabled)) {
+                  return AppColors.wellnessGray.withValues(alpha: 0.35);
+                }
+                return AppColors.wellnessBrown;
+              }),
+              dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AppColors.wellnessBrown;
+                }
+                return AppColors.transparent;
+              }),
+              dividerColor: AppColors.wellnessBrown.withValues(alpha: 0.12),
+              surfaceTintColor: AppColors.transparent,
+              shadowColor: AppColors.wellnessBrown.withValues(alpha: 0.15),
+              elevation: 12,
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.wellnessBrown,
                 textStyle: AppTextStyles.labelLarge.copyWith(
                   fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.m,
+                  vertical: AppSpacing.s,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.r12,
                 ),
               ),
             ),
@@ -726,17 +791,82 @@ class _CycleScreenState extends State<CycleScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.wellnessBrown,
+            colorScheme: ColorScheme.light(
+              primary: AppColors.phaseMenstrual,
               onPrimary: AppColors.white,
               onSurface: AppColors.wellnessBrown,
-              surface: AppColors.white,
+              surface: const Color(0xFFFBF7F2),
+              onSurfaceVariant: AppColors.wellnessGray,
+              outline: AppColors.phaseMenstrual.withValues(alpha: 0.2),
+            ),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: const Color(0xFFFBF7F2),
+              headerBackgroundColor: AppColors.phaseMenstrual,
+              headerForegroundColor: AppColors.white,
+              headerHeadlineStyle: AppTextStyles.headlineLarge.copyWith(
+                color: AppColors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 28,
+              ),
+              headerHelpStyle: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.white.withValues(alpha: 0.85),
+                letterSpacing: 0.8,
+              ),
+              dayStyle: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.wellnessBrown,
+                fontWeight: FontWeight.w500,
+              ),
+              weekdayStyle: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.wellnessGray,
+                fontWeight: FontWeight.w600,
+              ),
+              yearStyle: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.wellnessBrown,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: AppRadius.r24,
+              ),
+              dayShape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: AppRadius.r8),
+              ),
+              todayBorder: BorderSide(
+                color: AppColors.phaseMenstrual,
+                width: 1.5,
+              ),
+              todayForegroundColor: WidgetStateProperty.all(
+                AppColors.phaseMenstrual,
+              ),
+              dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) return AppColors.white;
+                if (states.contains(WidgetState.disabled)) {
+                  return AppColors.wellnessGray.withValues(alpha: 0.35);
+                }
+                return AppColors.wellnessBrown;
+              }),
+              dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AppColors.phaseMenstrual;
+                }
+                return AppColors.transparent;
+              }),
+              dividerColor: AppColors.phaseMenstrual.withValues(alpha: 0.15),
+              surfaceTintColor: AppColors.transparent,
+              shadowColor: AppColors.wellnessBrown.withValues(alpha: 0.15),
+              elevation: 12,
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.wellnessBrown,
+                foregroundColor: AppColors.phaseMenstrual,
                 textStyle: AppTextStyles.labelLarge.copyWith(
                   fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.m,
+                  vertical: AppSpacing.s,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.r12,
                 ),
               ),
             ),

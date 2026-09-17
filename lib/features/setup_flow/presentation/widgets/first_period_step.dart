@@ -270,7 +270,44 @@ class _FirstPeriodStepState extends State<FirstPeriodStep> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header: month selection
+          // ── Info Pill ───────────────────────────────────────────────────────
+          // Clarifies that this date is a prediction baseline, not a cycle log.
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.m,
+              vertical: AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.wellnessPinkCategory.withValues(alpha: 0.10),
+              borderRadius: AppRadius.rCircular,
+              border: Border.all(
+                color: AppColors.wellnessPinkCategory.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 13.0,
+                  color: AppColors.wellnessPinkCategory,
+                ),
+                AppSpacing.w8,
+                Flexible(
+                  child: Text(
+                    'For prediction only — log your period from the Cycle tab.',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: AppColors.wellnessPinkCategory,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          AppSpacing.h16,
+
+          // ── Month Header ────────────────────────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

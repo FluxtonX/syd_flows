@@ -298,12 +298,19 @@ class CycleStateNotifier extends ChangeNotifier {
       }
     }
 
-    // From onboarding / setup flow cycle settings lastPeriodStart anchor
-    final anchor = _settings.lastPeriodStart;
-    if (!anchor.isAfter(cutoff)) {
-      final key = '${anchor.year}-${anchor.month}-${anchor.day}';
-      if (!uniqueMap.containsKey(key)) {
-        uniqueMap[key] = anchor;
+    // ── Source 3: Setup Flow anchor ──────────────────────────────────────────
+    // ONLY include as a confirmed start if isBaselineOnly is FALSE.
+    // When isBaselineOnly = true, the anchor is purely a prediction calibration
+    // reference and must NOT count toward adaptive cycle length calculations.
+    // This prevents the setup baseline from triggering hasSufficientHistory
+    // and skewing the adaptive engine for brand-new users.
+    if (!_settings.isBaselineOnly) {
+      final anchor = _settings.lastPeriodStart;
+      if (!anchor.isAfter(cutoff)) {
+        final key = '${anchor.year}-${anchor.month}-${anchor.day}';
+        if (!uniqueMap.containsKey(key)) {
+          uniqueMap[key] = anchor;
+        }
       }
     }
 
@@ -431,6 +438,76 @@ class CycleStateNotifier extends ChangeNotifier {
             })
             .catchError((e) {
               Helpers.log('CycleStateNotifier: cleanup error for $dateKey: $e');
+            });
+      }
+    }
+
+    // ── Phantom Baseline Cleanup ─────────────────────────────────────────────
+    // If the setup anchor is marked as baseline-only (isBaselineOnly: true),
+    // any period record at that date was created by the old setup flow and is
+    // a phantom. Auto-delete it and clear the isPeriodStart flag on its
+    // companion cycle_log so the adaptive engine sees only real cycles.
+    if (!_settings.isBaselineOnly) return;
+
+    final anchor = _settings.lastPeriodStart;
+    final anchorKey = CycleService.instance.formatDateKey(
+      anchor.year,
+      anchor.month,
+      anchor.day,
+    );
+
+    final hasPhantomRecord = _periodRecords.any((rec) {
+      final recKey = CycleService.instance.formatDateKey(
+        rec.startDate.year,
+        rec.startDate.month,
+        rec.startDate.day,
+      );
+      return recKey == anchorKey;
+    });
+
+    if (hasPhantomRecord) {
+      // Delete the phantom period record from the periods subcollection.
+      CycleService.instance
+          .deletePeriodRecord(uid: uid, dateKey: anchorKey)
+          .then((_) {
+            Helpers.log(
+              'CycleStateNotifier: deleted phantom baseline period record: $anchorKey',
+            );
+          })
+          .catchError((e) {
+            Helpers.log(
+              'CycleStateNotifier: phantom cleanup error for $anchorKey: $e',
+            );
+          });
+
+      // Also clear isPeriodStart on the companion cycle_log if it exists,
+      // so _getConfirmedStartDates Source 2 (logs) also excludes this date.
+      final log = logsMap[anchorKey];
+      if (log != null && log.isPeriodStart) {
+        CycleService.instance
+            .saveDailyLog(
+              uid: uid,
+              dateKey: anchorKey,
+              journal: DayJournal(
+                flow: log.flow,
+                moods: log.moods,
+                symptoms: log.symptoms,
+                energy: log.energy,
+                notes: log.notes,
+                isPeriodStart: false, // Clear phantom flag
+                isPeriodEnd: false,
+              ),
+              isPeriodStart: false,
+            )
+            .then((_) {
+              Helpers.log(
+                'CycleStateNotifier: cleared phantom isPeriodStart flag on cycle_log: $anchorKey',
+              );
+            })
+            .catchError((e) {
+              Helpers.log(
+                'CycleStateNotifier: phantom log clear error for $anchorKey: $e',
+              );
             });
       }
     }
