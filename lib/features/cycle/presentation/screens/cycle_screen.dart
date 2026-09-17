@@ -1512,8 +1512,7 @@ class _CycleScreenState extends State<CycleScreen> {
               spacing: 10.0,
               runSpacing: 8.0,
               children: [
-                _buildLegendItem(AppColors.phaseMenstrual, 'Period (Actual)', isSolid: true),
-                _buildLegendItem(AppColors.phaseMenstrual, 'Predicted', isSolid: false),
+                _buildLegendItem(AppColors.phaseMenstrual, 'Menstrual', isSolid: true),
                 _buildLegendItem(AppColors.phaseFollicular, 'Follicular', isSolid: true),
                 _buildLegendItem(AppColors.phaseOvulation, 'Ovulation', isSolid: true),
                 _buildLegendItem(AppColors.phaseLuteal, 'Luteal', isSolid: true),
@@ -1531,20 +1530,12 @@ class _CycleScreenState extends State<CycleScreen> {
 
     switch (dayState) {
       case CalendarDayState.actualPeriod:
+      case CalendarDayState.predictedPeriod:
         backgroundColor = AppColors.phaseMenstrual;
         break;
-      case CalendarDayState.predictedPeriod:
-        backgroundColor = AppColors.phaseMenstrual.withValues(alpha: 0.28);
-        border = Border.all(
-          color: AppColors.phaseMenstrual,
-          width: 1.2,
-        );
-        break;
       case CalendarDayState.estimatedOvulation:
-        backgroundColor = AppColors.phaseOvulation;
-        break;
       case CalendarDayState.fertileWindow:
-        backgroundColor = AppColors.phaseOvulation.withValues(alpha: 0.35);
+        backgroundColor = AppColors.phaseOvulation;
         break;
       case CalendarDayState.follicular:
         backgroundColor = AppColors.phaseFollicular;
@@ -1572,7 +1563,7 @@ class _CycleScreenState extends State<CycleScreen> {
   }
 
   Color _getDayStateTextColor(CalendarDayState dayState, bool isSelected) {
-    if (dayState == CalendarDayState.predictedPeriod || dayState == CalendarDayState.normal) {
+    if (dayState == CalendarDayState.normal) {
       return AppColors.wellnessBrown;
     }
     return AppColors.white;

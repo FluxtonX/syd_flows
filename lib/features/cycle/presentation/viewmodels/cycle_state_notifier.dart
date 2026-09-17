@@ -343,6 +343,39 @@ class CycleStateNotifier extends ChangeNotifier {
     final CyclePhase phase = phaseForCalendarDate(dateNorm);
 
     if (phase == CyclePhase.menstrual) {
+      // Find the latest confirmed start before or on this date
+      final confirmedStarts = _getConfirmedStartDates();
+      DateTime? relevantStart;
+      for (final start in confirmedStarts) {
+        final startNorm = DateTime(start.year, start.month, start.day);
+        if (!dateNorm.isBefore(startNorm)) {
+          relevantStart = startNorm;
+          break; // Since it's sorted descending, this is the most recent
+        }
+      }
+
+      if (relevantStart != null) {
+        final diff = dateNorm.difference(relevantStart).inDays;
+        if (diff < 14) {
+          // Check if there's an isPeriodEnd between relevantStart and dateNorm
+          bool ended = false;
+          for (int i = 0; i < diff; i++) {
+            final checkDate = relevantStart.add(Duration(days: i));
+            final String cy = checkDate.year.toString();
+            final String cm = checkDate.month.toString().padLeft(2, '0');
+            final String cd = checkDate.day.toString().padLeft(2, '0');
+            final logEntry = _allLogs['$cy-$cm-$cd'];
+            if (logEntry != null && logEntry.isPeriodEnd) {
+              ended = true;
+              break;
+            }
+          }
+          if (!ended) {
+            return CalendarDayState.actualPeriod;
+          }
+        }
+      }
+
       // Predicted menstrual phase window (no user bleeding log on this date)
       return CalendarDayState.predictedPeriod;
     }
